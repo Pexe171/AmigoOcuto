@@ -17,7 +17,7 @@ export interface ParticipantDocument extends Document {
   guardianEmails: string[];
   emailVerified: boolean;
   verification?: VerificationInfo;
-  goingToSpain?: boolean;
+  attendingInPerson?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,7 +47,7 @@ const ParticipantSchema = new Schema<ParticipantDocument>(
     guardianEmails: [{ type: String, lowercase: true, trim: true }],
     emailVerified: { type: Boolean, default: false },
     verification: { type: VerificationSchema },
-    goingToSpain: { type: Boolean }
+    attendingInPerson: { type: Boolean }
   },
   { timestamps: true }
 );

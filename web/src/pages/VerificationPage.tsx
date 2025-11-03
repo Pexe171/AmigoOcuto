@@ -13,7 +13,7 @@ const verificationSchema = z.object({
     .string()
     .min(6, 'O código possui 6 dígitos')
     .max(6, 'O código possui 6 dígitos'),
-  goingToSpain: z.enum(['true', 'false']).default('false')
+  attendingInPerson: z.enum(['true', 'false']).default('false')
 });
 
 type VerificationForm = z.infer<typeof verificationSchema>;
@@ -31,7 +31,7 @@ const VerificationPage: React.FC = () => {
     resolver: zodResolver(verificationSchema) as Resolver<VerificationForm>,
     defaultValues: {
       participantId: participant.id ?? '',
-      goingToSpain: 'false'
+      attendingInPerson: 'false'
     }
   });
 
@@ -42,7 +42,7 @@ const VerificationPage: React.FC = () => {
       const response = await api.post('/participants/verify', {
         participantId: data.participantId,
         code: data.code,
-        goingToSpain: data.goingToSpain === 'true'
+        attendingInPerson: data.attendingInPerson === 'true'
       });
       const { message } = response.data as { message: string };
       show('success', message ?? 'Inscrição confirmada com sucesso.');
@@ -58,7 +58,7 @@ const VerificationPage: React.FC = () => {
       <div className="shadow-card" style={{ maxWidth: '640px', margin: '0 auto' }}>
         <h2 style={{ marginTop: 0 }}>Confirme seu e-mail</h2>
         <p style={{ color: '#475569' }}>
-          Digite o ID recebido na conclusão da inscrição e informe o código enviado por e-mail. Você pode aproveitar este passo para atualizar se viajará para a Espanha.
+          Digite o ID recebido na conclusão da inscrição e informe o código enviado por e-mail. Aproveite para sinalizar se participará presencialmente no encontro principal.
         </p>
 
         {notification && <Notification type={notification.type} message={notification.message} onClose={clear} />}
@@ -77,10 +77,10 @@ const VerificationPage: React.FC = () => {
           </div>
 
           <div>
-            <label>Atualizar presença na Espanha</label>
-            <select {...register('goingToSpain')}>
-              <option value="false">Ainda não tenho certeza ou participarei remoto</option>
-              <option value="true">Sim, estarei na Espanha</option>
+            <label>Atualizar presença presencial</label>
+            <select {...register('attendingInPerson')}>
+              <option value="false">Ainda não tenho certeza ou participarei a distância</option>
+              <option value="true">Sim, estarei presente fisicamente</option>
             </select>
           </div>
 

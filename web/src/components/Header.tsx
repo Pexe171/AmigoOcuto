@@ -9,8 +9,8 @@ const Header: React.FC = () => {
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 0' }}>
         <Link to="/" style={{ textDecoration: 'none' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 700, fontSize: '1.25rem', color: '#4338ca' }}>Megacuto</span>
-            <span style={{ fontSize: '0.85rem', color: '#475569' }}>Domingo Oculto</span>
+            <span style={{ fontWeight: 700, fontSize: '1.25rem', color: '#4338ca' }}>Amigo Ocuto</span>
+            <span style={{ fontSize: '0.85rem', color: '#475569' }}>Encontro Secreto</span>
           </div>
         </Link>
         <nav style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>

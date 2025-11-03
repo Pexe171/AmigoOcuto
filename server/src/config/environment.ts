@@ -6,8 +6,8 @@ dotenv.config();
 const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
   PORT: z.coerce.number().default(4000),
-  MONGO_URI: z.string(),
-  ADMIN_TOKEN: z.string(),
+  MONGO_URI: z.string().default('mongodb://127.0.0.1:27017/amigoocuto'),
+  ADMIN_TOKEN: z.string().default('admin-token'),
   MAILER_MODE: z.enum(['smtp', 'console']).default('console'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),

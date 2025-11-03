@@ -60,7 +60,7 @@ export const getParticipantStatus = async (req: Request, res: Response): Promise
       nickname: participant.nickname,
       emailVerified: participant.emailVerified,
       isChild: participant.isChild,
-      goingToSpain: participant.goingToSpain
+      attendingInPerson: participant.attendingInPerson
     });
   } catch (error) {
     res.status(404).json({ message: (error as Error).message });
