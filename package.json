@@ -1,0 +1,13 @@
+{
+  "name": "amigoocuto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma web do Domingo Oculto da Megacuto",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix server run build && npm --prefix web run build",
+    "lint": "npm --prefix server run lint && npm --prefix web run lint"
+  }
+}
