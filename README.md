@@ -1,6 +1,6 @@
-# Megacuto Domingo Oculto
+# Amigo Ocuto
 
-Plataforma profissional para organizar o Domingo Oculto da Megacuto. O sistema é composto por uma API Node.js conectada ao MongoDB e uma interface web moderna construída com React e Vite.
+Plataforma profissional para organizar seu encontro de amigo oculto. O sistema é composto por uma API Node.js conectada ao MongoDB e uma interface web moderna construída com React e Vite.
 
 ## Visão geral
 
@@ -35,6 +35,8 @@ Plataforma profissional para organizar o Domingo Oculto da Megacuto. O sistema �
    - `MONGO_URI`: string de conexão com seu cluster MongoDB.
    - `ADMIN_TOKEN`: token secreto utilizado pelo painel administrativo.
    - Configurações de SMTP caso deseje enviar e-mails reais (`MAILER_MODE=smtp`).
+
+   > **Dica:** Para facilitar o desenvolvimento local, a API usa `mongodb://127.0.0.1:27017/amigoocuto` e `admin-token` como valores padrão caso o `.env` não esteja presente. Ainda assim, personalize essas credenciais antes de subir o projeto para produção.
 
 3. Instale dependências e inicie o servidor em modo desenvolvimento:
 
@@ -74,7 +76,7 @@ npm --prefix web run build
    - Um código de verificação é enviado ao e-mail principal (do participante adulto ou do responsável).
 
 2. **Confirmação de e-mail**
-   - Em `/confirmacao`, informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail. É possível atualizar a informação sobre participação presencial na Espanha.
+   - Em `/confirmacao`, informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail. Aproveite para indicar se participará presencialmente no encontro principal.
 
 3. **Lista de presentes**
    - Em `/listas`, cole o ID da inscrição para buscar ou atualizar a lista de presentes. É possível adicionar até 50 itens com prioridade, descrição e link.

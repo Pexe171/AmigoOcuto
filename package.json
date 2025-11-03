@@ -2,7 +2,7 @@
   "name": "amigoocuto",
   "version": "1.0.0",
   "private": true,
-  "description": "Plataforma web do Domingo Oculto da Megacuto",
+  "description": "Plataforma web colaborativa do Amigo Ocuto",
   "workspaces": ["server", "web"],
   "scripts": {
     "dev:server": "npm --prefix server run dev",

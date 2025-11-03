@@ -34,7 +34,7 @@ type DrawResult = {
   tickets: number;
 };
 
-const TOKEN_KEY = 'megacuto.adminToken';
+const TOKEN_KEY = 'amigoocuto.adminToken';
 
 const AdminPage: React.FC = () => {
   const { notification, show, clear } = useNotification();
@@ -187,7 +187,7 @@ const AdminPage: React.FC = () => {
                     id="eventName"
                     value={form.name}
                     onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                    placeholder="Ex.: Domingo Oculto 2025"
+                    placeholder="Ex.: Amigo Ocuto 2025"
                   />
                 </div>
                 <div>

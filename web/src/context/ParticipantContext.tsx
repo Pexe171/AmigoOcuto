@@ -16,7 +16,7 @@ const defaultState: ParticipantState = { id: null, firstName: null, isChild: fal
 
 const ParticipantContext = createContext<ParticipantContextValue | undefined>(undefined);
 
-const STORAGE_KEY = 'megacuto.participant';
+const STORAGE_KEY = 'amigoocuto.participant';
 
 export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [participant, setParticipantState] = useState<ParticipantState>(() => {

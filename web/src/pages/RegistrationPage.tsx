@@ -20,7 +20,7 @@ const registrationSchema = z
     isChild: z.boolean(),
     primaryGuardianEmail: z.string().email('Informe um e-mail válido').optional(),
     guardians: z.array(guardianSchema).default([]),
-    goingToSpain: z.boolean()
+    attendingInPerson: z.boolean()
   })
   .superRefine((data, ctx) => {
     if (data.isChild) {
@@ -54,7 +54,7 @@ const RegistrationPage: React.FC = () => {
     defaultValues: {
       isChild: false,
       guardians: [],
-      goingToSpain: false
+      attendingInPerson: false
     }
   });
 
@@ -76,7 +76,7 @@ const RegistrationPage: React.FC = () => {
         guardianEmails: data.isChild
           ? [data.primaryGuardianEmail!, ...data.guardians.map(({ email }: { email: string }) => email)].filter(Boolean)
           : undefined,
-        goingToSpain: data.goingToSpain
+        attendingInPerson: data.attendingInPerson
       };
 
       const response = await api.post('/participants', payload);
@@ -85,7 +85,7 @@ const RegistrationPage: React.FC = () => {
       show('success', `${message} Guarde o código enviado para confirmar o e-mail.`);
       reset({
         isChild: data.isChild,
-        goingToSpain: data.goingToSpain,
+        attendingInPerson: data.attendingInPerson,
         guardians: []
       });
     } catch (error) {
@@ -98,7 +98,7 @@ const RegistrationPage: React.FC = () => {
   return (
     <div className="container" style={{ padding: '48px 0' }}>
       <div className="shadow-card" style={{ maxWidth: '760px', margin: '0 auto' }}>
-        <h2 style={{ marginTop: 0 }}>Inscreva-se no Domingo Oculto</h2>
+        <h2 style={{ marginTop: 0 }}>Inscreva-se no Amigo Ocuto</h2>
         <p style={{ color: '#475569' }}>
           Preencha seus dados principais. Adultos precisam confirmar o próprio e-mail; crianças informam os responsáveis e recebem o código no e-mail principal do responsável.
         </p>
@@ -188,16 +188,16 @@ const RegistrationPage: React.FC = () => {
           ) : (
             <div>
               <label htmlFor="email">E-mail</label>
-              <input id="email" {...register('email')} placeholder="voce@megacuto.com" />
+              <input id="email" {...register('email')} placeholder="voce@amigoocuto.com" />
               {errors.email && <small style={{ color: '#dc2626' }}>{errors.email.message}</small>}
             </div>
           )}
 
           <div>
-            <label>Vai participar presencialmente na Espanha?</label>
-            <select {...register('goingToSpain')}>
-              <option value="false">Ainda não tenho certeza ou participarei remoto</option>
-              <option value="true">Sim, estarei na Espanha</option>
+            <label>Vai participar presencialmente no encontro principal?</label>
+            <select {...register('attendingInPerson')}>
+              <option value="false">Ainda não tenho certeza ou participarei a distância</option>
+              <option value="true">Sim, estarei presente fisicamente</option>
             </select>
           </div>
 

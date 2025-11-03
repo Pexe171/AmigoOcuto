@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "API do Domingo Oculto da Megacuto",
+  "description": "API do Amigo Ocuto",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",

@@ -14,13 +14,13 @@ const registrationSchema = z.object({
   isChild: z.boolean().default(false),
   primaryGuardianEmail: z.string().email().optional(),
   guardianEmails: z.array(z.string().email()).optional(),
-  goingToSpain: z.boolean().optional()
+  attendingInPerson: z.boolean().optional()
 });
 
 const verificationSchema = z.object({
   participantId: z.string().regex(/^[0-9a-fA-F]{24}$/),
   code: z.string().length(6, 'O código de verificação deve ter 6 dígitos.'),
-  goingToSpain: z.boolean().optional()
+  attendingInPerson: z.boolean().optional()
 });
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
@@ -58,7 +58,7 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Par
     guardianEmails: data.guardianEmails?.map((email) => email.toLowerCase()) ?? [],
     emailVerified: false,
     verification,
-    goingToSpain: data.goingToSpain
+    attendingInPerson: data.attendingInPerson
   });
 
   await participant.save();
@@ -88,8 +88,8 @@ export const verifyParticipant = async (
 
   participant.emailVerified = true;
   participant.set('verification', undefined);
-  if (typeof data.goingToSpain === 'boolean') {
-    participant.goingToSpain = data.goingToSpain;
+  if (typeof data.attendingInPerson === 'boolean') {
+    participant.attendingInPerson = data.attendingInPerson;
   }
 
   await participant.save();

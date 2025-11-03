@@ -22,14 +22,14 @@ export const sendVerificationEmail = async (
 
   const html = `
     <p>Olá ${participant.firstName},</p>
-    <p>Recebemos o seu pedido para participar do Domingo Oculto.</p>
+    <p>Recebemos o seu pedido para participar do Amigo Ocuto.</p>
     <p>Use o código <strong>${code}</strong> para validar o e-mail principal (${mainRecipient}).</p>
     <p>Este código expira em 30 minutos.</p>
   `;
 
   await mailer.sendMail({
     to: recipients,
-    subject: 'Confirme a sua inscrição no Domingo Oculto',
+    subject: 'Confirme a sua inscrição no Amigo Ocuto',
     html
   });
 };
@@ -58,7 +58,7 @@ export const sendDrawEmail = async (
 
   const html = `
     <p>Olá ${participant.firstName},</p>
-    <p>O sorteio do Domingo Oculto foi realizado e o seu ticket é <strong>${ticketCode}</strong>.</p>
+    <p>O sorteio do Amigo Ocuto foi realizado e o seu ticket é <strong>${ticketCode}</strong>.</p>
     <p>Você presenteia: <strong>${assigned.firstName} ${assigned.secondName}</strong>.</p>
     ${giftHtml}
     <p>Guarde este e-mail, ele será útil para futuras consultas.</p>
@@ -66,7 +66,7 @@ export const sendDrawEmail = async (
 
   await mailer.sendMail({
     to: recipientEmails,
-    subject: 'Seu sorteio do Domingo Oculto',
+    subject: 'Seu sorteio do Amigo Ocuto',
     html
   });
 };

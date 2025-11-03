@@ -12,8 +12,8 @@ const HomePage: React.FC = () => {
     <div className="container" style={{ padding: '48px 0 80px' }}>
       <section className="banner">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <span className="badge">Domingo Oculto 2025</span>
-          <h1 style={{ fontSize: '2.5rem', margin: 0 }}>Experiência profissional para o amigo secreto da Megacuto</h1>
+          <span className="badge">Amigo Ocuto 2025</span>
+          <h1 style={{ fontSize: '2.5rem', margin: 0 }}>Experiência profissional para o seu amigo oculto</h1>
           <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '620px' }}>
             Centralize as inscrições, valide e-mails automaticamente, colete listas de presentes e execute sorteios sigilosos com histórico auditável.
           </p>
