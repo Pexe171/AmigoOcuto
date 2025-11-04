@@ -12,7 +12,7 @@ const connectWithUri = async (
 const ensureInMemoryServer = async (): Promise<string> => {
   if (!memoryServer) {
     memoryServer = await MongoMemoryServer.create({
-      instance: { dbName: 'amigoocuto' }
+      instance: { dbName: env.MONGO_DB_NAME }
     });
   }
 
@@ -25,11 +25,11 @@ export const connectDatabase = async (): Promise<typeof mongoose> => {
   if (env.MONGO_IN_MEMORY) {
     const inMemoryUri = await ensureInMemoryServer();
     console.info('MongoDB em memória inicializado (MONGO_IN_MEMORY=true).');
-    return connectWithUri(inMemoryUri, { dbName: 'amigoocuto' });
+    return connectWithUri(inMemoryUri, { dbName: env.MONGO_DB_NAME });
   }
 
   try {
-    return await connectWithUri(env.MONGO_URI);
+    return await connectWithUri(env.MONGO_URI, { dbName: env.MONGO_DB_NAME });
   } catch (error) {
     if (
       error instanceof mongoose.Error.MongooseServerSelectionError &&
@@ -42,7 +42,7 @@ export const connectDatabase = async (): Promise<typeof mongoose> => {
       console.info(
         'Caso prefira iniciar diretamente no modo em memória, defina MONGO_IN_MEMORY=true no seu arquivo .env.'
       );
-      return connectWithUri(inMemoryUri, { dbName: 'amigoocuto' });
+      return connectWithUri(inMemoryUri, { dbName: env.MONGO_DB_NAME });
     }
 
     throw error;
