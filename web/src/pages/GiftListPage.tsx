@@ -44,6 +44,7 @@ type ParticipantStatus = {
   id: string;
   firstName: string;
   secondName: string;
+  fullName: string;
   nickname?: string;
   email?: string;
   primaryGuardianEmail?: string;
@@ -191,7 +192,7 @@ const GiftListPage: React.FC = () => {
         })
       ]);
       if (status) {
-        show('success', `Dados carregados para ${status.firstName} ${status.secondName}.`);
+        show('success', `Dados carregados para ${status.fullName}.`);
       }
     } catch (error) {
       show('error', extractErrorMessage(error));
@@ -243,9 +244,7 @@ const GiftListPage: React.FC = () => {
           {participantStatus ? (
             <div className="space-y-1">
               <p>
-                <strong>
-                  {participantStatus.firstName} {participantStatus.secondName}
-                </strong>{' '}
+                <strong>{participantStatus.fullName}</strong>{' '}
                 {participantStatus.nickname ? `(${participantStatus.nickname})` : ''} ·{' '}
                 {participantStatus.isChild ? 'Criança' : 'Adulto'}
               </p>

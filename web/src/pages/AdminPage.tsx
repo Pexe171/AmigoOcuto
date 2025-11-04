@@ -36,6 +36,7 @@ type ParticipantSummary = {
   id: string;
   firstName: string;
   secondName: string;
+  fullName: string;
   nickname?: string;
   email?: string;
   isChild: boolean;
@@ -57,6 +58,7 @@ type ParticipantDetail = {
   id: string;
   firstName: string;
   secondName: string;
+  fullName: string;
   nickname?: string;
   email?: string;
   isChild: boolean;
@@ -80,6 +82,8 @@ const TOKEN_KEY = 'amigoocuto.adminToken';
 const AdminPage: React.FC = () => {
   const { notification, show, clear } = useNotification();
   const [token, setToken] = useState<string>(() => localStorage.getItem(TOKEN_KEY) ?? '');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [shouldRestoreSession, setShouldRestoreSession] = useState<boolean>(() => Boolean(localStorage.getItem(TOKEN_KEY)));
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
@@ -106,46 +110,70 @@ const AdminPage: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  const authHeaders = useMemo(() => ({ headers: { 'x-admin-token': token } }), [token]);
+  const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : null), [token]);
+  const axiosAuthConfig = useMemo(() => (authHeaders ? { headers: authHeaders } : undefined), [authHeaders]);
 
-  const loginMutation = useMutation<void, unknown, string>({
-    mutationFn: async (tokenValue) => {
-      await api.post('/admin/login', { token: tokenValue });
+  type AdminLoginPayload = { email?: string; password?: string; token?: string };
+
+  type AdminLoginResponse = { token: string; email: string; message?: string };
+
+  const loginMutation = useMutation<AdminLoginResponse, unknown, AdminLoginPayload>({
+    mutationFn: async (payload) => {
+      const response = await api.post('/admin/login', payload);
+      return response.data as AdminLoginResponse;
     },
-    onSuccess: (_, tokenValue) => {
-      setToken(tokenValue);
+    onSuccess: (data, variables) => {
+      setToken(data.token);
       setIsAuthenticated(true);
-      setShouldRestoreSession((restore) => {
-        show('success', restore ? 'Sessão administrativa restaurada.' : 'Acesso administrativo autorizado.');
-        return false;
-      });
-    },
-    onError: (error) => {
-      setIsAuthenticated(false);
       setShouldRestoreSession(false);
+      if (!variables.token) {
+        setEmail('');
+        setPassword('');
+      }
+      show('success', variables.token ? 'Sessão administrativa restaurada.' : data.message ?? 'Acesso autorizado.');
+    },
+    onError: (error, variables) => {
+      if (variables.token) {
+        setToken('');
+        setShouldRestoreSession(false);
+      }
+      setIsAuthenticated(false);
       show('error', extractErrorMessage(error));
     }
   });
 
   useEffect(() => {
     if (shouldRestoreSession && token && !isAuthenticated && !loginMutation.isPending) {
-      loginMutation.mutate(token);
+      loginMutation.mutate({ token });
     }
   }, [shouldRestoreSession, token, isAuthenticated, loginMutation]);
 
   const handleLogin = (): void => {
-    if (!token) {
-      show('error', 'Informe o token administrativo antes de conectar.');
+    if (!email || !password) {
+      show('error', 'Informe e-mail e senha administrativos.');
       return;
     }
     clear();
-    loginMutation.mutate(token);
+    loginMutation.mutate({ email, password });
+  };
+
+  const handleLogout = (): void => {
+    setToken('');
+    setIsAuthenticated(false);
+    setShouldRestoreSession(false);
+    show('info', 'Sessão administrativa encerrada.');
+  };
+
+  const clearSessionSilently = (): void => {
+    setToken('');
+    setIsAuthenticated(false);
+    setShouldRestoreSession(false);
   };
 
   const eventsQuery = useQuery<EventSummary[]>({
     queryKey: ['admin-events', token],
     queryFn: async () => {
-      const response = await api.get('/admin/events', authHeaders);
+      const response = await api.get('/admin/events', axiosAuthConfig);
       return response.data as EventSummary[];
     },
     enabled: isAuthenticated,
@@ -156,7 +184,7 @@ const AdminPage: React.FC = () => {
   const participantsQuery = useQuery<ParticipantSummary[]>({
     queryKey: ['admin-participants', token],
     queryFn: async () => {
-      const response = await api.get('/admin/participants', authHeaders);
+      const response = await api.get('/admin/participants', axiosAuthConfig);
       return response.data as ParticipantSummary[];
     },
     enabled: isAuthenticated,
@@ -167,7 +195,7 @@ const AdminPage: React.FC = () => {
   const participantDetailsQuery = useQuery<ParticipantDetail>({
     queryKey: ['admin-participant-detail', selectedParticipantId, token],
     queryFn: async () => {
-      const response = await api.get(`/admin/participants/${selectedParticipantId}`, authHeaders);
+      const response = await api.get(`/admin/participants/${selectedParticipantId}`, axiosAuthConfig);
       return response.data as ParticipantDetail;
     },
     enabled: isAuthenticated && Boolean(selectedParticipantId),
@@ -176,7 +204,7 @@ const AdminPage: React.FC = () => {
 
   const drawEventMutation = useMutation<DrawResult, unknown, string>({
     mutationFn: async (eventId) => {
-      const response = await api.post(`/admin/events/${eventId}/draw`, null, authHeaders);
+      const response = await api.post(`/admin/events/${eventId}/draw`, null, axiosAuthConfig);
       return response.data as DrawResult;
     },
     onSuccess: (data) => {
@@ -185,7 +213,7 @@ const AdminPage: React.FC = () => {
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        setIsAuthenticated(false);
+        clearSessionSilently();
       }
       show('error', extractErrorMessage(error));
     }
@@ -193,7 +221,7 @@ const AdminPage: React.FC = () => {
 
   const testEmailMutation = useMutation<TestEmailResult>({
     mutationFn: async () => {
-      const response = await api.post('/admin/emails/test', null, authHeaders);
+      const response = await api.post('/admin/emails/test', null, axiosAuthConfig);
       return response.data as TestEmailResult;
     },
     onSuccess: (data) => {
@@ -202,7 +230,7 @@ const AdminPage: React.FC = () => {
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        setIsAuthenticated(false);
+        clearSessionSilently();
       }
       show('error', extractErrorMessage(error));
     }
@@ -211,7 +239,7 @@ const AdminPage: React.FC = () => {
   const historyQuery = useQuery<EventHistory>({
     queryKey: ['event-history', selectedEvent, token],
     queryFn: async () => {
-      const response = await api.get(`/admin/events/${selectedEvent}/history`, authHeaders);
+      const response = await api.get(`/admin/events/${selectedEvent}/history`, axiosAuthConfig);
       return response.data as EventHistory;
     },
     enabled: isAuthenticated && Boolean(selectedEvent),
@@ -224,10 +252,10 @@ const AdminPage: React.FC = () => {
       return;
     }
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      setIsAuthenticated(false);
+      clearSessionSilently();
     }
     show('error', extractErrorMessage(error));
-  }, [eventsQuery.error, show, setIsAuthenticated]);
+  }, [eventsQuery.error, show, clearSessionSilently]);
 
   useEffect(() => {
     const error = participantsQuery.error;
@@ -235,26 +263,33 @@ const AdminPage: React.FC = () => {
       return;
     }
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      setIsAuthenticated(false);
+      clearSessionSilently();
     }
     show('error', extractErrorMessage(error));
-  }, [participantsQuery.error, show, setIsAuthenticated]);
+  }, [participantsQuery.error, show, clearSessionSilently]);
 
   useEffect(() => {
     const error = participantDetailsQuery.error;
     if (!error) {
       return;
     }
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      clearSessionSilently();
+      return;
+    }
     show('error', extractErrorMessage(error));
-  }, [participantDetailsQuery.error, show]);
+  }, [participantDetailsQuery.error, show, clearSessionSilently]);
 
   useEffect(() => {
     const error = historyQuery.error;
     if (!error) {
       return;
     }
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      clearSessionSilently();
+    }
     show('error', extractErrorMessage(error));
-  }, [historyQuery.error, show]);
+  }, [historyQuery.error, show, clearSessionSilently]);
 
   const participants: ParticipantSummary[] = participantsQuery.data ?? [];
   const events: EventSummary[] = eventsQuery.data ?? [];
@@ -281,8 +316,8 @@ const AdminPage: React.FC = () => {
       description={
         <>
           <p>
-            Utilize o token administrativo para consultar participantes confirmados, acompanhar eventos e disparar sorteios com
-            segurança.
+            Entre com o e-mail e a senha administrativos para consultar participantes confirmados, acompanhar eventos e
+            disparar sorteios com segurança.
           </p>
           <p className="text-sm text-white/70">
             Acesse também as ferramentas de teste para validar o envio de e-mails antes do grande dia.
@@ -295,37 +330,60 @@ const AdminPage: React.FC = () => {
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Autenticação</h3>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_auto] md:items-end">
-          <div className="space-y-2">
-            <label htmlFor="adminToken" className={labelClass}>
-              Token administrativo
-            </label>
-            <input
-              id="adminToken"
-              value={token}
-              onChange={(event) => {
-                const value = event.target.value;
-                setToken(value);
-                setIsAuthenticated(false);
-                if (!value) {
-                  setShouldRestoreSession(false);
-                }
-              }}
-              className={inputClass}
-              placeholder="Informe o token definido no backend"
-            />
-            <small className="block text-sm text-white/70">
-              Status: <span className="font-semibold text-white">{isAuthenticated ? 'Sessão autenticada' : 'Sessão não autenticada'}</span>
-            </small>
+        <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] md:items-end">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="adminEmail" className={labelClass}>
+                E-mail administrativo
+              </label>
+              <input
+                id="adminEmail"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className={inputClass}
+                placeholder="seu.email@empresa.com"
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="adminPassword" className={labelClass}>
+                Senha administrativa
+              </label>
+              <input
+                id="adminPassword"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className={inputClass}
+                placeholder="Digite a senha cadastrada"
+                autoComplete="current-password"
+              />
+            </div>
           </div>
-          <button
-            type="button"
-            className={primaryButtonClass}
-            onClick={handleLogin}
-            disabled={loginMutation.isPending}
-          >
-            {loginMutation.isPending ? 'Validando...' : 'Entrar'}
-          </button>
+          <div className="space-y-3">
+            <p className="text-sm text-white/70">
+              Status:{' '}
+              <span className="font-semibold text-white">
+                {isAuthenticated ? 'Sessão autenticada' : 'Sessão não autenticada'}
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                className={primaryButtonClass}
+                onClick={handleLogin}
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? 'Validando...' : 'Entrar'}
+              </button>
+              {isAuthenticated && (
+                <button type="button" className={ghostButtonClass} onClick={handleLogout}>
+                  Sair
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -383,9 +441,7 @@ const AdminPage: React.FC = () => {
                   <tbody className="divide-y divide-white/10">
                     {participants.map((participantSummary) => (
                       <tr key={participantSummary.id}>
-                        <td className="px-4 py-3">
-                          {participantSummary.firstName} {participantSummary.secondName}
-                        </td>
+                        <td className="px-4 py-3">{participantSummary.fullName}</td>
                         <td className="px-4 py-3">{participantSummary.nickname ?? '—'}</td>
                         <td className="px-4 py-3 capitalize">{participantSummary.isChild ? 'Criança' : 'Adulto'}</td>
                         <td className="px-4 py-3">
@@ -434,7 +490,7 @@ const AdminPage: React.FC = () => {
                 <div className="space-y-4 rounded-2xl border border-white/20 bg-black/20 p-6 text-white/85">
                   <div>
                     <p className="text-xl font-semibold text-white">
-                      {selectedParticipant.firstName} {selectedParticipant.secondName}
+                      {selectedParticipant.fullName}
                       {selectedParticipant.nickname ? ` (${selectedParticipant.nickname})` : ''}
                     </p>
                     <p className="text-white/70">
@@ -566,7 +622,7 @@ const AdminPage: React.FC = () => {
         </>
       ) : (
         <div className="rounded-2xl border border-white/20 bg-black/20 p-6 text-white/80">
-          Informe o token administrativo e clique em “Entrar” para acessar os recursos.
+          Informe o e-mail e a senha administrativos e clique em “Entrar” para acessar os recursos.
         </div>
       )}
     </FestiveCard>

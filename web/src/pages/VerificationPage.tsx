@@ -14,8 +14,7 @@ const verificationSchema = z.object({
   code: z
     .string()
     .min(6, 'O código possui 6 dígitos')
-    .max(6, 'O código possui 6 dígitos'),
-  attendingInPerson: z.enum(['true', 'false']).default('false')
+    .max(6, 'O código possui 6 dígitos')
 });
 
 type VerificationForm = z.infer<typeof verificationSchema>;
@@ -32,8 +31,7 @@ const VerificationPage: React.FC = () => {
   } = useForm<VerificationForm>({
     resolver: zodResolver(verificationSchema) as Resolver<VerificationForm>,
     defaultValues: {
-      participantId: participant.id ?? '',
-      attendingInPerson: 'false'
+      participantId: participant.id ?? ''
     }
   });
 
@@ -43,8 +41,7 @@ const VerificationPage: React.FC = () => {
     try {
       const response = await api.post('/participants/verify', {
         participantId: data.participantId,
-        code: data.code,
-        attendingInPerson: data.attendingInPerson === 'true'
+        code: data.code
       });
       const { message } = response.data as { message: string };
       show('success', message ?? 'Inscrição confirmada com sucesso.');
@@ -65,10 +62,7 @@ const VerificationPage: React.FC = () => {
       eyebrow={eyebrow}
       description={
         <>
-          <p>
-            Informe o ID recebido na conclusão da inscrição e o código de 6 dígitos enviado por e-mail. Aproveite para
-            atualizar a participação presencial, caso já tenha decidido.
-          </p>
+          <p>Informe o ID recebido na conclusão da inscrição e o código de 6 dígitos enviado por e-mail.</p>
           <p className="text-sm text-white/70">
             {participant.id
               ? 'Utilize o ID que mostramos ao final do cadastro. Se perdeu, refaça a inscrição para gerar um novo código.'
@@ -109,14 +103,6 @@ const VerificationPage: React.FC = () => {
             autoComplete="one-time-code"
           />
           {errors.code && <p className="text-sm text-rose-200">{errors.code.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <label className={labelClass}>Vai participar presencialmente no encontro principal?</label>
-          <select {...register('attendingInPerson')} className={inputClass}>
-            <option value="false">Ainda não tenho certeza ou participarei a distância</option>
-            <option value="true">Sim, estarei presente fisicamente</option>
-          </select>
         </div>
 
         <div className="flex flex-col items-start gap-3 text-sm text-white/70">

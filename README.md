@@ -38,11 +38,13 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
    - `MONGO_IN_MEMORY`: defina como `true` para iniciar um MongoDB em memória (ótimo para quem não tem um servidor local).
      > Garanta que o utilizador configurado no cluster possua a permissão **readWrite** (ou equivalente). Sem direito de `find`,
      > a API entrará automaticamente em modo em memória em ambientes de desenvolvimento e interromperá a inicialização em produção.
-   - `ADMIN_TOKEN`: token secreto utilizado pelo painel administrativo.
+   - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: credenciais utilizadas para acessar o painel administrativo.
+   - `ADMIN_JWT_SECRET`: segredo utilizado para assinar os tokens de sessão do painel.
+   - `ADMIN_SESSION_MINUTES`: duração (em minutos) das sessões administrativas.
    - Para enviar e-mails reais, defina `MAILER_MODE=smtp` e configure também `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `MAIL_FROM`.
    - Se for usar Gmail, gere uma [senha de app](https://myaccount.google.com/apppasswords) após ativar a verificação em duas etapas e utilize-a em `SMTP_PASS`.
 
-   > **Dica:** Para facilitar o desenvolvimento local, a API usa `mongodb://127.0.0.1:27017` com o banco `amigoocuto`, além do `admin-token`, como valores padrão caso o `.env` não esteja presente. Ainda assim, personalize essas credenciais antes de subir o projeto para produção.
+   > **Dica:** Para facilitar o desenvolvimento local, a API usa `mongodb://127.0.0.1:27017` com o banco `amigoocuto`, além das credenciais administrativas padrão (`admin@amigoocuto.com` / `troque-esta-senha`). Ainda assim, personalize essas informações antes de subir o projeto para produção.
    >
    > Se o MongoDB configurado não estiver acessível, o backend tentará automaticamente iniciar uma instância em memória (somente fora de produção) e informará isso no console. Você também pode habilitar esse comportamento diretamente ativando `MONGO_IN_MEMORY=true` no `.env`.
 
@@ -91,15 +93,15 @@ npm --prefix web run build
    - Um código de verificação é enviado ao e-mail principal (do participante adulto ou do responsável).
 
 2. **Confirmação de e-mail**
-   - Em `/confirmacao`, informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail. Aproveite para indicar se participará presencialmente no encontro principal.
+   - Em `/confirmacao`, informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail para concluir a validação.
    - Somente após essa confirmação os dados são persistidos na coleção principal; inscrições pendentes podem refazer o processo sem bloquear o e-mail.
 
 3. **Lista de presentes**
    - Em `/listas`, cole o ID da inscrição para buscar ou atualizar a lista de presentes. É possível adicionar até 50 itens com prioridade, descrição e link.
 
 4. **Painel administrativo**
-   - Em `/admin`, informe o token definido na variável `ADMIN_TOKEN`.
-   - Consulte a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
+  - Em `/admin`, autentique-se com o e-mail e a senha configurados nas variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
+  - Consulte a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
    - Acompanhe os eventos existentes e, quando todos os participantes estiverem verificados em número par, execute o sorteio com um único clique.
    - Verifique o histórico de sorteios de cada evento. Todas as ações são de consulta, exceto o disparo do sorteio.
    - Dispare um e-mail de teste para todos os contatos confirmados antes do sorteio oficial e valide rapidamente as credenciais SMTP.
@@ -120,7 +122,7 @@ npm --prefix web run build
 - **Mongoose** para modelagem robusta das coleções `Participants`, `GiftLists`, `Events` e `Tickets`.
 - Separação em camadas (serviços, controladores, rotas) na API.
 - **React Query** e **React Hook Form** para experiência fluida na interface.
-- Armazenamento seguro de tokens administrativos e IDs de participantes no `localStorage` com feedback contextual.
+- Armazenamento seguro das sessões administrativas e IDs de participantes no `localStorage` com feedback contextual.
 - Persistência apenas de inscrições com e-mail confirmado, mantendo as pendentes em coleção separada até a validação.
 
 ## Próximos passos sugeridos

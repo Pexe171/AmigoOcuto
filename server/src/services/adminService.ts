@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { ParticipantModel } from '../models/Participant';
 import { GiftListModel, GiftItem } from '../models/GiftList';
 import { collectParticipantRecipients, sendTestEmailToParticipant } from './emailService';
+import { ensureNames } from '../utils/nameUtils';
 
 interface ParticipantData {
   _id: Types.ObjectId;
@@ -27,6 +28,7 @@ export type AdminParticipantSummary = {
   id: string;
   firstName: string;
   secondName: string;
+  fullName: string;
   nickname?: string;
   email?: string;
   isChild: boolean;
@@ -41,6 +43,7 @@ export type AdminParticipantDetails = {
   id: string;
   firstName: string;
   secondName: string;
+  fullName: string;
   nickname?: string;
   email?: string;
   isChild: boolean;
@@ -64,10 +67,16 @@ export const listParticipantsWithGiftSummary = async (): Promise<AdminParticipan
   });
 
   return participants.map((participant) => {
+    const names = ensureNames({
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+    });
+
     const summary: AdminParticipantSummary = {
       id: participant._id.toString(),
       firstName: participant.firstName,
       secondName: participant.secondName,
+      fullName: names.fullName,
       isChild: participant.isChild,
       emailVerified: participant.emailVerified,
       giftCount: giftMap.get(participant._id.toString())?.length ?? 0,
@@ -99,10 +108,16 @@ export const getParticipantDetailsForAdmin = async (participantId: string): Prom
 
   const giftList = await GiftListModel.findOne({ participant: participant._id }).lean<GiftListData | null>();
 
+  const names = ensureNames({
+    firstName: participant.firstName,
+    secondName: participant.secondName,
+  });
+
   const details: AdminParticipantDetails = {
     id: participant._id.toString(),
     firstName: participant.firstName,
     secondName: participant.secondName,
+    fullName: names.fullName,
     isChild: participant.isChild,
     emailVerified: participant.emailVerified,
     guardianEmails: participant.guardianEmails,

@@ -28,7 +28,8 @@
 body {
   background: linear-gradient(135deg, #4c0519 0%, #064e3b 100%);
   color: #f1f5f9; /* Um texto "branco-sujo" (slate-100) que combina bem */
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Animação de Neve

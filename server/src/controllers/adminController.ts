@@ -1,19 +1,76 @@
 import { Request, Response } from 'express';
 import { createEvent, listEvents, cancelEvent, drawEvent, getEventHistory } from '../services/eventService';
 import { env } from '../config/environment';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import { z } from 'zod';
 import {
   getParticipantDetailsForAdmin,
   listParticipantsWithGiftSummary,
   sendTestEmailsToAllParticipants
 } from '../services/adminService';
 
+type AdminTokenPayload = { email: string };
+
+const loginSchema = z
+  .object({
+    email: z.string().email().optional(),
+    password: z.string().min(1, 'Informe a senha administrativa.').optional(),
+    token: z.string().optional()
+  })
+  .superRefine((data, ctx) => {
+    if (data.token) {
+      return;
+    }
+    if (!data.email) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Informe o e-mail administrativo.', path: ['email'] });
+    }
+    if (!data.password) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Informe a senha administrativa.', path: ['password'] });
+    }
+  });
+
 export const authenticateAdmin = (req: Request, res: Response): void => {
-  const { token } = req.body as { token?: string };
-  if (!token || token !== env.ADMIN_TOKEN) {
-    res.status(401).json({ message: 'Token administrativo inválido.' });
-    return;
+  try {
+    const credentials = loginSchema.parse(req.body ?? {});
+
+    if (credentials.token) {
+      try {
+        const payload = jwt.verify(credentials.token, env.ADMIN_JWT_SECRET) as AdminTokenPayload & JwtPayload;
+        res.json({
+          message: 'Sessão restaurada com sucesso.',
+          token: credentials.token,
+          email: payload.email ?? env.ADMIN_EMAIL
+        });
+        return;
+      } catch (error) {
+        res.status(401).json({ message: 'Sessão administrativa expirada. Faça login novamente.' });
+        return;
+      }
+    }
+
+    const normalizedEmail = credentials.email!.toLowerCase();
+    if (
+      normalizedEmail !== env.ADMIN_EMAIL.toLowerCase() ||
+      credentials.password !== env.ADMIN_PASSWORD
+    ) {
+      res.status(401).json({ message: 'Credenciais administrativas inválidas.' });
+      return;
+    }
+
+    const token = jwt.sign(
+      { email: env.ADMIN_EMAIL } satisfies AdminTokenPayload,
+      env.ADMIN_JWT_SECRET,
+      { expiresIn: `${env.ADMIN_SESSION_MINUTES}m` }
+    );
+
+    res.json({ message: 'Acesso autorizado.', token, email: env.ADMIN_EMAIL });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ message: 'Informe o e-mail e a senha administrativos.' });
+      return;
+    }
+    res.status(400).json({ message: (error as Error).message });
   }
-  res.json({ message: 'Acesso autorizado.' });
 };
 
 export const listParticipants = async (_req: Request, res: Response): Promise<void> => {

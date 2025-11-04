@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,14 +22,16 @@ const guardianSchema = z.object({
 
 const registrationSchema = z
   .object({
-    firstName: z.string().min(2, 'Informe o primeiro nome'),
-    secondName: z.string().min(2, 'Informe o segundo nome'),
+    fullName: z
+      .string()
+      .trim()
+      .min(3, 'Informe o nome completo')
+      .max(120, 'O nome pode ter até 120 caracteres'),
     nickname: z.string().optional(),
     email: z.string().email('Informe um e-mail válido').optional(),
     isChild: z.boolean(),
     primaryGuardianEmail: z.string().email('Informe um e-mail válido').optional(),
     guardians: z.array(guardianSchema).default([]),
-    attendingInPerson: z.boolean()
   })
   .superRefine((data, ctx) => {
     if (data.isChild) {
@@ -60,8 +62,11 @@ type RegistrationForm = z.infer<typeof registrationSchema>;
 
 const RegistrationPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [recentRegistration, setRecentRegistration] = useState<{ id: string; fullName: string; contactEmail: string | null } | null>(
+    null
+  );
   const { notification, show, clear } = useNotification();
-  const { participant, setParticipant } = useParticipant();
+  const { setParticipant } = useParticipant();
 
   const {
     register,
@@ -74,44 +79,54 @@ const RegistrationPage: React.FC = () => {
     resolver: zodResolver(registrationSchema) as Resolver<RegistrationForm>,
     defaultValues: {
       isChild: false,
-      guardians: [],
-      attendingInPerson: false
+      guardians: []
     }
   });
 
   const { fields, append, remove } = useFieldArray({ name: 'guardians', control });
 
   const isChild = watch('isChild');
+  const fullNameValue = watch('fullName');
+
+  const firstNameFromForm = useMemo(() => {
+    if (!fullNameValue) {
+      return '';
+    }
+    const [first] = fullNameValue.trim().split(/\s+/);
+    return first ?? '';
+  }, [fullNameValue]);
 
   const onSubmit = handleSubmit(async (data) => {
     setLoading(true);
     clear();
     try {
       const payload = {
-        firstName: data.firstName,
-        secondName: data.secondName,
+        fullName: data.fullName,
         nickname: data.nickname,
         email: data.isChild ? data.email || undefined : data.email,
         isChild: data.isChild,
         primaryGuardianEmail: data.isChild ? data.primaryGuardianEmail : undefined,
         guardianEmails: data.isChild
           ? [data.primaryGuardianEmail!, ...data.guardians.map(({ email }: { email: string }) => email)].filter(Boolean)
-          : undefined,
-        attendingInPerson: data.attendingInPerson
+          : undefined
       };
 
       const response = await api.post('/participants', payload);
       const { id, message } = response.data as { id: string; message: string };
       const contactEmail = data.isChild ? data.primaryGuardianEmail ?? null : data.email ?? null;
-      setParticipant({ id, firstName: data.firstName, isChild: data.isChild, contactEmail });
+      setParticipant({ id, firstName: firstNameFromForm || data.fullName, isChild: data.isChild, contactEmail });
+      setRecentRegistration({ id, fullName: data.fullName, contactEmail });
       const successMessage = contactEmail
-        ? `${message} Enviamos o código para ${contactEmail}.`
-        : `${message} Guarde o código enviado ao e-mail informado.`;
+        ? `${message} Código enviado para ${contactEmail}. Anote o ID: ${id}.`
+        : `${message} Anote o ID: ${id}.`;
       show('success', successMessage);
       reset({
         isChild: data.isChild,
-        attendingInPerson: data.attendingInPerson,
-        guardians: []
+        guardians: [],
+        fullName: '',
+        nickname: '',
+        email: '',
+        primaryGuardianEmail: ''
       });
     } catch (error) {
       show('error', extractErrorMessage(error));
@@ -137,40 +152,30 @@ const RegistrationPage: React.FC = () => {
     >
       {notification && <Notification type={notification.type} message={notification.message} onClose={clear} />}
 
-      {participant.id && (
+      {recentRegistration && (
         <div className="rounded-2xl border border-white/20 bg-black/25 p-5 text-white/85 space-y-2 text-sm">
-          <p className="text-white/70 uppercase tracking-[0.25em] text-xs">Inscrição ativa</p>
+          <p className="text-white/70 uppercase tracking-[0.25em] text-xs">Inscrição enviada agora</p>
           <p>
-            <strong>{participant.firstName}</strong> · ID:{' '}
-            <span className="font-mono text-sm bg-black/40 px-2 py-1 rounded-lg ml-1">{participant.id}</span>
+            <strong>{recentRegistration.fullName}</strong> · ID:{' '}
+            <span className="font-mono text-sm bg-black/40 px-2 py-1 rounded-lg ml-1">{recentRegistration.id}</span>
           </p>
-          {participant.contactEmail && (
+          {recentRegistration.contactEmail ? (
             <p>
-              Código enviado para: <strong>{participant.contactEmail}</strong>
+              Código de verificação enviado para: <strong>{recentRegistration.contactEmail}</strong>
             </p>
+          ) : (
+            <p>Anote este ID para confirmar o e-mail e montar sua lista de presentes.</p>
           )}
-          <p className="text-white/60">
-            Use essas informações para confirmar o e-mail ou montar a lista de presentes quando quiser.
-          </p>
         </div>
       )}
 
       <form onSubmit={onSubmit} className="space-y-8">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <label htmlFor="firstName" className={labelClass}>
-              Primeiro nome
-            </label>
-            <input id="firstName" {...register('firstName')} className={inputClass} placeholder="Ex.: Ana" />
-            {errors.firstName && <p className="text-sm text-rose-200">{errors.firstName.message}</p>}
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="secondName" className={labelClass}>
-              Segundo nome
-            </label>
-            <input id="secondName" {...register('secondName')} className={inputClass} placeholder="Ex.: Beatriz" />
-            {errors.secondName && <p className="text-sm text-rose-200">{errors.secondName.message}</p>}
-          </div>
+        <div className="space-y-2">
+          <label htmlFor="fullName" className={labelClass}>
+            Nome completo
+          </label>
+          <input id="fullName" {...register('fullName')} className={inputClass} placeholder="Digite o nome e sobrenome" />
+          {errors.fullName && <p className="text-sm text-rose-200">{errors.fullName.message}</p>}
         </div>
 
         <div className="space-y-2">
@@ -273,14 +278,6 @@ const RegistrationPage: React.FC = () => {
             {errors.email && <p className="text-sm text-rose-200">{errors.email.message}</p>}
           </div>
         )}
-
-        <div className="space-y-2">
-          <label className={labelClass}>Vai participar presencialmente no encontro principal?</label>
-          <select {...register('attendingInPerson')} className={inputClass}>
-            <option value="false">Ainda não tenho certeza ou participarei a distância</option>
-            <option value="true">Sim, estarei presente fisicamente</option>
-          </select>
-        </div>
 
         <div className="flex justify-end">
           <button type="submit" className={primaryButtonClass} disabled={loading}>
