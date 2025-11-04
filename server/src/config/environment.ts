@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { z } from 'zod';
+import { z, ZodIssueCode } from 'zod';
 
 dotenv.config();
 
@@ -14,10 +14,44 @@ const envSchema = z.object({
   SMTP_SECURE: z
     .enum(['true', 'false'])
     .optional()
-    .transform((value) => value === 'true'),
+    .transform((value) => (value ? value === 'true' : undefined)),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  MAIL_FROM: z.string().email().optional()
+  MAIL_FROM: z.string().optional()
+}).superRefine((data, ctx) => {
+  if (data.MAILER_MODE === 'smtp') {
+    if (!data.SMTP_HOST) {
+      ctx.addIssue({
+        code: ZodIssueCode.custom,
+        message: 'SMTP_HOST é obrigatório quando MAILER_MODE for smtp',
+        path: ['SMTP_HOST']
+      });
+    }
+
+    if (!data.SMTP_PORT) {
+      ctx.addIssue({
+        code: ZodIssueCode.custom,
+        message: 'SMTP_PORT é obrigatório quando MAILER_MODE for smtp',
+        path: ['SMTP_PORT']
+      });
+    }
+
+    if (data.SMTP_SECURE === undefined) {
+      ctx.addIssue({
+        code: ZodIssueCode.custom,
+        message: 'SMTP_SECURE é obrigatório quando MAILER_MODE for smtp',
+        path: ['SMTP_SECURE']
+      });
+    }
+
+    if (!data.MAIL_FROM || !data.MAIL_FROM.trim()) {
+      ctx.addIssue({
+        code: ZodIssueCode.custom,
+        message: 'MAIL_FROM é obrigatório quando MAILER_MODE for smtp',
+        path: ['MAIL_FROM']
+      });
+    }
+  }
 });
 
 type Env = z.infer<typeof envSchema>;

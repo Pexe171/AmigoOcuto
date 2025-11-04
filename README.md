@@ -32,9 +32,10 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
 2. Ajuste as variáveis no `.env`:
 
-   - `MONGO_URI`: string de conexão com seu cluster MongoDB.
+   - `MONGO_URI`: string de conexão com seu cluster MongoDB (incluindo o nome da base, ex.: `.../amigoocuto`).
    - `ADMIN_TOKEN`: token secreto utilizado pelo painel administrativo.
-   - Configurações de SMTP caso deseje enviar e-mails reais (`MAILER_MODE=smtp`).
+   - Para enviar e-mails reais, defina `MAILER_MODE=smtp` e configure também `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `MAIL_FROM`.
+   - Se for usar Gmail, gere uma [senha de app](https://myaccount.google.com/apppasswords) após ativar a verificação em duas etapas e utilize-a em `SMTP_PASS`.
 
    > **Dica:** Para facilitar o desenvolvimento local, a API usa `mongodb://127.0.0.1:27017/amigoocuto` e `admin-token` como valores padrão caso o `.env` não esteja presente. Ainda assim, personalize essas credenciais antes de subir o projeto para produção.
 
