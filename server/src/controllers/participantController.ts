@@ -5,6 +5,7 @@ import {
   verifyParticipant,
   resendVerificationCode,
   getParticipantOrFail,
+  searchParticipants,
 } from '../services/participantService';
 
 // Esta função é chamada quando fazes POST /api/participants
@@ -87,5 +88,29 @@ export const getParticipantStatus = async (
     });
   } catch (error) {
     res.status(404).json({ message: (error as Error).message });
+  }
+};
+
+export const searchParticipantsByName = async (req: Request, res: Response): Promise<void> => {
+  const { q } = req.query;
+  if (!q || typeof q !== 'string') {
+    res.status(400).json({ message: 'Informe um termo para pesquisar participantes.' });
+    return;
+  }
+
+  try {
+    const results = await searchParticipants(q);
+    res.json({
+      results: results.map((participant) => ({
+        id: participant._id,
+        firstName: participant.firstName,
+        secondName: participant.secondName,
+        nickname: participant.nickname,
+        emailVerified: participant.emailVerified,
+        isChild: participant.isChild
+      }))
+    });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
   }
 };

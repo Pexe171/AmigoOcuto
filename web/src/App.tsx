@@ -10,6 +10,7 @@ import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 // --- Configuração da API ---
 // Mantemos a configuração da API e o helper de erro
@@ -235,7 +236,7 @@ const HomePage: React.FC<{ navigate: (page: string) => void }> = ({
         >
           Participe do nosso amigo oculto de Natal. Inscreva-se ou consulte sua lista de presentes.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
           <button
             onClick={() => navigate('inscricao')}
             className="w-full sm:w-auto bg-white text-red-700 font-bold py-3 px-8 rounded-full shadow-lg transform transition-transform hover:scale-105"
@@ -248,7 +249,23 @@ const HomePage: React.FC<{ navigate: (page: string) => void }> = ({
           >
             Consultar Lista
           </button>
+          <button
+            onClick={() => navigate('consulta')}
+            className="w-full sm:w-auto bg-emerald-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition-transform hover:scale-105"
+          >
+            Consultar Amigo Sorteado
+          </button>
         </div>
+        <p className="text-sm text-white/80 mt-6" style={{ fontFamily: "'Merriweather', serif" }}>
+          Organização do evento?{' '}
+          <button
+            type="button"
+            onClick={() => navigate('admin')}
+            className="underline underline-offset-4 decoration-white/60 hover:text-white"
+          >
+            Acesse o painel administrativo
+          </button>
+        </p>
       </div>
     </div>
   );
@@ -442,18 +459,21 @@ const RegistrationPage: React.FC<{ navigate: (page: string) => void }> = ({
                       Outros responsáveis (opcional)
                     </label>
                     {fields.map((field, index) => (
-                      <div key={field.id} className="flex gap-2 mb-2">
-                        <input
-                          id={`guardianEmails.${index}.email`}
-                          register={regForm.register(
-                            `guardianEmails.${index}.email` as const,
-                          )}
-                          error={
-                            regForm.formState.errors.guardianEmails?.[index]
-                              ?.email?.message
-                          }
-                          placeholder="outro.responsavel@email.com"
-                        />
+                      <div key={field.id} className="flex gap-2 mb-2 items-end">
+                        <div className="flex-1">
+                          <Input
+                            id={`guardianEmails.${index}.email`}
+                            label={`E-mail adicional ${index + 1}`}
+                            register={regForm.register(
+                              `guardianEmails.${index}.email` as const,
+                            )}
+                            error={
+                              regForm.formState.errors.guardianEmails?.[index]
+                                ?.email?.message
+                            }
+                            placeholder="outro.responsavel@email.com"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => remove(index)}
@@ -788,6 +808,862 @@ const GiftListPage: React.FC<{ navigate: (page: string) => void }> = ({
   );
 };
 
+const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+
+type ParticipantResult = {
+  id: string;
+  firstName: string;
+  secondName: string;
+  nickname?: string;
+  isChild: boolean;
+};
+
+type ParticipantStatus = {
+  id: string;
+  firstName: string;
+  secondName: string;
+  nickname?: string;
+  emailVerified: boolean;
+  isChild: boolean;
+  attendingInPerson?: boolean;
+};
+
+const GiftLookupPage: React.FC<{ navigate: (page: string) => void }> = ({ navigate }) => {
+  const { notification, show, clear } = useNotification();
+  const [query, setQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [results, setResults] = useState<ParticipantResult[]>([]);
+  const [selectedParticipant, setSelectedParticipant] = useState<ParticipantStatus | null>(null);
+  const [gifts, setGifts] = useState<GiftResponse['items']>([]);
+  const [loadingParticipant, setLoadingParticipant] = useState(false);
+
+  const resetSelection = (): void => {
+    setSelectedParticipant(null);
+    setGifts([]);
+  };
+
+  const fetchParticipantData = async (participantId: string): Promise<void> => {
+    setLoadingParticipant(true);
+    clear();
+    try {
+      const [statusResponse, giftsResponse] = await Promise.all([
+        api.get(`/participants/${participantId}`),
+        api.get(`/participants/${participantId}/gifts`),
+      ]);
+
+      const status = statusResponse.data as ParticipantStatus;
+      const giftData = giftsResponse.data as GiftResponse;
+
+      if (!status.emailVerified) {
+        show(
+          'error',
+          'Este participante ainda não confirmou o e-mail. Aguarde a verificação antes de consultar a lista.',
+        );
+        resetSelection();
+        return;
+      }
+
+      setSelectedParticipant(status);
+      const items = giftData.items ?? [];
+      setGifts(items);
+      if (items.length === 0) {
+        show('info', `Nenhum presente cadastrado por ${status.firstName} ${status.secondName} até o momento.`);
+      } else {
+        show('success', `Lista carregada para ${status.firstName} ${status.secondName}.`);
+      }
+    } catch (error) {
+      show('error', extractErrorMessage(error));
+      resetSelection();
+    } finally {
+      setLoadingParticipant(false);
+    }
+  };
+
+  const handleSearch = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    clear();
+    resetSelection();
+
+    const trimmed = query.trim();
+    if (!trimmed) {
+      show('error', 'Informe o nome completo ou o ID do participante.');
+      return;
+    }
+
+    if (objectIdRegex.test(trimmed)) {
+      setResults([]);
+      await fetchParticipantData(trimmed);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await api.get('/participants/search', { params: { q: trimmed } });
+      const data = response.data as { results: ParticipantResult[] };
+      setResults(data.results);
+      if (data.results.length === 0) {
+        show('info', 'Nenhum participante encontrado para o nome informado.');
+      } else {
+        show('success', `${data.results.length} participante(s) encontrado(s). Selecione abaixo.`);
+      }
+    } catch (error) {
+      show('error', extractErrorMessage(error));
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  return (
+    <div className="relative z-10 flex flex-col items-center p-6">
+      <div className="w-full max-w-4xl bg-white p-8 md:p-10 rounded-2xl shadow-2xl">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <h2 className="text-3xl font-bold text-gray-800" style={{ fontFamily: "'Merriweather', serif" }}>
+            Consultar lista de presentes
+          </h2>
+          <Button type="button" variant="secondary" onClick={() => navigate('home')}>
+            Voltar
+          </Button>
+        </div>
+        <p className="text-gray-600 mb-6" style={{ fontFamily: "'Merriweather', serif" }}>
+          Pesquise pelo nome completo do amigo sorteado ou utilize o ID enviado no e-mail do sorteio.
+        </p>
+        {notification && (
+          <div className="mb-4">
+            <Notification type={notification.type} message={notification.message} onClose={clear} />
+          </div>
+        )}
+        <form onSubmit={handleSearch} className="space-y-4 mb-8">
+          <div>
+            <label htmlFor="lookupQuery" className="block text-sm font-medium text-gray-700 mb-2">
+              Nome completo ou ID da inscrição
+            </label>
+            <input
+              id="lookupQuery"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="w-full px-4 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-shadow"
+              placeholder="Ex.: Ana Beatriz ou 65f3b2c1..."
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit" variant="primary" loading={isSearching}>
+              {isSearching ? 'Pesquisando...' : 'Buscar'}
+            </Button>
+          </div>
+        </form>
+        {results.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4" style={{ fontFamily: "'Merriweather', serif" }}>
+              Participantes encontrados
+            </h3>
+            <div className="overflow-x-auto rounded-2xl border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Apelido</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipo</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {results.map((participant) => (
+                    <tr key={participant.id}>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {participant.firstName} {participant.secondName}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{participant.nickname ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 capitalize">
+                        {participant.isChild ? 'Criança' : 'Adulto'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <button
+                          type="button"
+                          onClick={() => void fetchParticipantData(participant.id)}
+                          className="inline-flex items-center px-4 py-2 border border-red-200 text-red-700 font-semibold rounded-full hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={loadingParticipant}
+                        >
+                          Ver lista
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {loadingParticipant && (
+          <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+            Carregando lista selecionada...
+          </p>
+        )}
+        {selectedParticipant && !loadingParticipant && (
+          <div className="space-y-4">
+            <div className="p-5 rounded-2xl bg-red-50 border border-red-100 shadow-inner">
+              <h3 className="text-xl font-semibold text-red-700" style={{ fontFamily: "'Merriweather', serif" }}>
+                Lista de {selectedParticipant.firstName} {selectedParticipant.secondName}
+                {selectedParticipant.nickname ? ` (${selectedParticipant.nickname})` : ''}
+              </h3>
+              <p className="text-red-700/80 mt-2" style={{ fontFamily: "'Merriweather', serif" }}>
+                Participação: {selectedParticipant.isChild ? 'Criança' : 'Adulto'} · Presença:{' '}
+                {selectedParticipant.attendingInPerson
+                  ? 'Confirmada no encontro presencial'
+                  : 'Remota ou não informada'}
+              </p>
+            </div>
+            {gifts.length === 0 ? (
+              <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                Este participante ainda não cadastrou preferências.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {gifts.map((gift, index) => (
+                  <li
+                    key={`${gift.name}-${index}`}
+                    className="p-4 border border-gray-200 rounded-xl bg-gray-50 shadow-sm space-y-1"
+                  >
+                    <p className="font-semibold text-gray-800">{gift.name}</p>
+                    {gift.priority && (
+                      <p className="text-sm text-gray-600 capitalize">Prioridade {gift.priority}</p>
+                    )}
+                    {gift.description && (
+                      <p className="text-sm text-gray-600">{gift.description}</p>
+                    )}
+                    {gift.url && (
+                      <a
+                        href={gift.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-red-600 hover:underline"
+                      >
+                        Ver link
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const eventSchema = z.object({
+  name: z.string().min(4, 'Informe o nome do evento'),
+  participantIds: z.array(z.string()).optional(),
+});
+
+type EventSummary = {
+  id: string;
+  name: string;
+  status: string;
+  participantes: number;
+  sorteios: number;
+  criadoEm: string;
+};
+
+type EventHistory = {
+  name: string;
+  status: string;
+  sorteios: { drawnAt: string; participantes: number }[];
+};
+
+type DrawResult = {
+  tickets: number;
+};
+
+type ParticipantSummary = {
+  id: string;
+  firstName: string;
+  secondName: string;
+  nickname?: string;
+  email?: string;
+  isChild: boolean;
+  emailVerified: boolean;
+  attendingInPerson?: boolean;
+  primaryGuardianEmail?: string;
+  giftCount: number;
+  createdAt: string;
+};
+
+type ParticipantDetail = {
+  id: string;
+  firstName: string;
+  secondName: string;
+  nickname?: string;
+  email?: string;
+  isChild: boolean;
+  emailVerified: boolean;
+  attendingInPerson?: boolean;
+  primaryGuardianEmail?: string;
+  guardianEmails: string[];
+  gifts: GiftResponse['items'];
+  createdAt: string;
+  updatedAt: string;
+};
+
+const TOKEN_KEY = 'amigoocuto.adminToken';
+
+const AdminPage: React.FC<{ navigate: (page: string) => void }> = ({ navigate }) => {
+  const { notification, show, clear } = useNotification();
+  const [token, setToken] = useState<string>(() => localStorage.getItem(TOKEN_KEY) ?? '');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [shouldRestoreSession, setShouldRestoreSession] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)));
+  const [form, setForm] = useState<{ name: string; participantIds: string }>({ name: '', participantIds: '' });
+  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      setIsAuthenticated(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else if (!token) {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setSelectedEvent(null);
+      setSelectedParticipantId(null);
+    }
+  }, [isAuthenticated]);
+
+  const authHeaders = useMemo(() => ({ headers: { 'x-admin-token': token } }), [token]);
+
+  const loginMutation = useMutation<void, unknown, string>({
+    mutationFn: async (tokenValue) => {
+      await api.post('/admin/login', { token: tokenValue });
+    },
+    onSuccess: (_, tokenValue) => {
+      setToken(tokenValue);
+      setIsAuthenticated(true);
+      setShouldRestoreSession(false);
+      show('success', 'Acesso administrativo autorizado.');
+    },
+    onError: (error) => {
+      setIsAuthenticated(false);
+      setShouldRestoreSession(false);
+      show('error', extractErrorMessage(error));
+    },
+  });
+
+  useEffect(() => {
+    if (shouldRestoreSession && token && !isAuthenticated && !loginMutation.isPending) {
+      loginMutation.mutate(token);
+    }
+  }, [shouldRestoreSession, token, isAuthenticated, loginMutation]);
+
+  const handleLogin = (): void => {
+    if (!token) {
+      show('error', 'Informe o token administrativo antes de conectar.');
+      return;
+    }
+    clear();
+    loginMutation.mutate(token);
+  };
+
+  const eventsQuery = useQuery<EventSummary[]>({
+    queryKey: ['admin-events', token],
+    queryFn: async () => {
+      const response = await api.get('/admin/events', authHeaders);
+      return response.data as EventSummary[];
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: false,
+  });
+
+  const participantsQuery = useQuery<ParticipantSummary[]>({
+    queryKey: ['admin-participants', token],
+    queryFn: async () => {
+      const response = await api.get('/admin/participants', authHeaders);
+      return response.data as ParticipantSummary[];
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: false,
+  });
+
+  const participantDetailsQuery = useQuery<ParticipantDetail>({
+    queryKey: ['admin-participant-detail', selectedParticipantId, token],
+    queryFn: async () => {
+      const response = await api.get(`/admin/participants/${selectedParticipantId}`, authHeaders);
+      return response.data as ParticipantDetail;
+    },
+    enabled: isAuthenticated && Boolean(selectedParticipantId),
+    refetchOnWindowFocus: false,
+  });
+
+  const historyQuery = useQuery<EventHistory>({
+    queryKey: ['event-history', selectedEvent, token],
+    queryFn: async () => {
+      const response = await api.get(`/admin/events/${selectedEvent}/history`, authHeaders);
+      return response.data as EventHistory;
+    },
+    enabled: isAuthenticated && Boolean(selectedEvent),
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    const error = eventsQuery.error;
+    if (!error) {
+      return;
+    }
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      setIsAuthenticated(false);
+    }
+    show('error', extractErrorMessage(error));
+  }, [eventsQuery.error, show]);
+
+  useEffect(() => {
+    const error = participantsQuery.error;
+    if (!error) {
+      return;
+    }
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      setIsAuthenticated(false);
+    }
+    show('error', extractErrorMessage(error));
+  }, [participantsQuery.error, show]);
+
+  useEffect(() => {
+    const error = participantDetailsQuery.error;
+    if (!error) {
+      return;
+    }
+    show('error', extractErrorMessage(error));
+  }, [participantDetailsQuery.error, show]);
+
+  useEffect(() => {
+    const error = historyQuery.error;
+    if (!error) {
+      return;
+    }
+    show('error', extractErrorMessage(error));
+  }, [historyQuery.error, show]);
+
+  const createEventMutation = useMutation<{ id: string }, unknown, void>({
+    mutationFn: async () => {
+      const parsed = eventSchema.safeParse({
+        name: form.name,
+        participantIds: form.participantIds
+          .split(/\s|,/)
+          .map((id) => id.trim())
+          .filter(Boolean),
+      });
+      if (!parsed.success) {
+        throw new Error(parsed.error.issues[0]?.message ?? 'Dados inválidos');
+      }
+      const response = await api.post(
+        '/admin/events',
+        {
+          name: parsed.data.name,
+          participantIds: parsed.data.participantIds?.length
+            ? parsed.data.participantIds
+            : undefined,
+        },
+        authHeaders,
+      );
+      return response.data as { id: string };
+    },
+    onSuccess: () => {
+      show('success', 'Evento criado e ativado com sucesso.');
+      setForm({ name: '', participantIds: '' });
+      void eventsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        setIsAuthenticated(false);
+      }
+      show('error', extractErrorMessage(error));
+    },
+  });
+
+  const cancelEventMutation = useMutation<void, unknown, string>({
+    mutationFn: async (eventId) => {
+      await api.post(`/admin/events/${eventId}/cancel`, null, authHeaders);
+    },
+    onSuccess: () => {
+      show('success', 'Evento cancelado.');
+      void eventsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        setIsAuthenticated(false);
+      }
+      show('error', extractErrorMessage(error));
+    },
+  });
+
+  const drawEventMutation = useMutation<DrawResult, unknown, string>({
+    mutationFn: async (eventId) => {
+      const response = await api.post(`/admin/events/${eventId}/draw`, null, authHeaders);
+      return response.data as DrawResult;
+    },
+    onSuccess: (data) => {
+      show('success', `Sorteio concluído. ${data.tickets} tickets emitidos.`);
+      void eventsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        setIsAuthenticated(false);
+      }
+      show('error', extractErrorMessage(error));
+    },
+  });
+
+  const participants = participantsQuery.data ?? [];
+  const events = eventsQuery.data ?? [];
+  const history = historyQuery.data;
+  const selectedParticipant = participantDetailsQuery.data ?? null;
+
+  return (
+    <div className="relative z-10 flex flex-col items-center p-6">
+      <div className="w-full max-w-5xl bg-white p-8 md:p-10 rounded-2xl shadow-2xl">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <h2 className="text-3xl font-bold text-gray-800" style={{ fontFamily: "'Merriweather', serif" }}>
+            Painel administrativo
+          </h2>
+          <Button type="button" variant="secondary" onClick={() => navigate('home')}>
+            Voltar
+          </Button>
+        </div>
+        <p className="text-gray-600 mb-6" style={{ fontFamily: "'Merriweather', serif" }}>
+          Gere eventos, acompanhe participantes confirmados e execute sorteios com a mesma magia natalina do nosso site.
+        </p>
+        {notification && (
+          <div className="mb-4">
+            <Notification type={notification.type} message={notification.message} onClose={clear} />
+          </div>
+        )}
+
+        <section className="mb-8 space-y-4">
+          <div>
+            <label htmlFor="adminToken" className="block text-sm font-medium text-gray-700 mb-2">
+              Token administrativo
+            </label>
+            <input
+              id="adminToken"
+              value={token}
+              onChange={(event) => {
+                const value = event.target.value;
+                setToken(value);
+                setIsAuthenticated(false);
+                if (!value) {
+                  setShouldRestoreSession(false);
+                }
+              }}
+              placeholder="Informe o token definido no backend"
+              className="w-full px-4 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-shadow"
+            />
+            <p className={`mt-2 text-sm ${isAuthenticated ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {isAuthenticated ? 'Sessão autenticada.' : 'Sessão não autenticada.'}
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="primary"
+              loading={loginMutation.isPending}
+              onClick={handleLogin}
+            >
+              {loginMutation.isPending ? 'Validando...' : 'Entrar'}
+            </Button>
+          </div>
+        </section>
+
+        {isAuthenticated ? (
+          <div className="space-y-8">
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-semibold text-gray-800" style={{ fontFamily: "'Merriweather', serif" }}>
+                  Participantes confirmados
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => void participantsQuery.refetch()}
+                  className="inline-flex items-center px-4 py-2 border border-red-200 text-red-700 font-semibold rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                  disabled={participantsQuery.isFetching}
+                >
+                  {participantsQuery.isFetching ? 'Atualizando...' : 'Atualizar'}
+                </button>
+              </div>
+              {participantsQuery.isLoading ? (
+                <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                  Carregando participantes...
+                </p>
+              ) : participants.length > 0 ? (
+                <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Apelido</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipo</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Presença</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Itens</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Inscrito em</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {participants.map((participant) => (
+                        <tr key={participant.id}>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {participant.firstName} {participant.secondName}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{participant.nickname ?? '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 capitalize">
+                            {participant.isChild ? 'Criança' : 'Adulto'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {participant.attendingInPerson ? 'Presencial' : 'Remoto/indefinido'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{participant.giftCount}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {new Date(participant.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedParticipantId(participant.id)}
+                              className="inline-flex items-center px-4 py-2 border border-red-200 text-red-700 font-semibold rounded-full hover:bg-red-50 transition-colors"
+                            >
+                              Ver detalhes
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                  Nenhum participante confirmado até o momento.
+                </p>
+              )}
+            </section>
+
+            {selectedParticipantId && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-semibold text-gray-800" style={{ fontFamily: "'Merriweather', serif" }}>
+                    Detalhes do participante
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedParticipantId(null)}
+                    className="inline-flex items-center px-4 py-2 border border-red-200 text-red-700 font-semibold rounded-full hover:bg-red-50 transition-colors"
+                  >
+                    Fechar
+                  </button>
+                </div>
+                {participantDetailsQuery.isLoading ? (
+                  <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                    Carregando informações...
+                  </p>
+                ) : selectedParticipant ? (
+                  <div className="space-y-3 p-6 bg-red-50 border border-red-100 rounded-2xl shadow-inner">
+                    <p className="text-lg font-semibold text-red-700">
+                      {selectedParticipant.firstName} {selectedParticipant.secondName}
+                      {selectedParticipant.nickname ? ` (${selectedParticipant.nickname})` : ''}
+                    </p>
+                    <p className="text-red-700/80">
+                      Tipo: {selectedParticipant.isChild ? 'Criança' : 'Adulto'} · Presença:{' '}
+                      {selectedParticipant.attendingInPerson ? 'Confirmada' : 'Remota ou indefinida'}
+                    </p>
+                    {selectedParticipant.email && (
+                      <p className="text-red-700/80">E-mail: {selectedParticipant.email}</p>
+                    )}
+                    {selectedParticipant.primaryGuardianEmail && (
+                      <p className="text-red-700/80">
+                        Responsável principal: {selectedParticipant.primaryGuardianEmail}
+                      </p>
+                    )}
+                    {selectedParticipant.guardianEmails.length > 0 && (
+                      <p className="text-red-700/80">
+                        Outros e-mails notificados: {selectedParticipant.guardianEmails.join(', ')}
+                      </p>
+                    )}
+                    <div>
+                      <h4 className="text-lg font-semibold text-red-700">
+                        Lista de presentes ({selectedParticipant.gifts.length})
+                      </h4>
+                      {selectedParticipant.gifts.length === 0 ? (
+                        <p className="text-red-700/80">Este participante ainda não cadastrou preferências.</p>
+                      ) : (
+                        <ul className="mt-2 space-y-2">
+                          {selectedParticipant.gifts.map((gift, index) => (
+                            <li key={`${gift.name}-${index}`} className="p-3 bg-white/70 rounded-xl border border-red-100">
+                              <strong>{gift.name}</strong>
+                              {gift.priority ? ` · prioridade ${gift.priority}` : ''}
+                              {gift.description ? ` — ${gift.description}` : ''}
+                              {gift.url ? (
+                                <>
+                                  {' '}
+                                  <a href={gift.url} target="_blank" rel="noreferrer" className="underline text-red-700">
+                                    Link
+                                  </a>
+                                </>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                    Não foi possível carregar os detalhes deste participante.
+                  </p>
+                )}
+              </section>
+            )}
+
+            <section className="space-y-4">
+              <h3 className="text-2xl font-semibold text-gray-800" style={{ fontFamily: "'Merriweather', serif" }}>
+                Novo evento
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="eventName" className="block text-sm font-medium text-gray-700">
+                    Nome do evento
+                  </label>
+                  <input
+                    id="eventName"
+                    value={form.name}
+                    onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="Ex.: Amigo Ocuto 2025"
+                    className="w-full px-4 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-shadow"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="participantIds" className="block text-sm font-medium text-gray-700">
+                    IDs de participantes (opcional)
+                  </label>
+                  <textarea
+                    id="participantIds"
+                    value={form.participantIds}
+                    onChange={(event) => setForm((prev) => ({ ...prev, participantIds: event.target.value }))}
+                    placeholder="Cole IDs separados por vírgula ou espaço para restringir o sorteio"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-shadow"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  loading={createEventMutation.isPending}
+                  onClick={() => createEventMutation.mutate()}
+                >
+                  {createEventMutation.isPending ? 'Criando...' : 'Criar evento'}
+                </Button>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-2xl font-semibold text-gray-800" style={{ fontFamily: "'Merriweather', serif" }}>
+                Eventos cadastrados
+              </h3>
+              {eventsQuery.isLoading ? (
+                <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                  Carregando eventos...
+                </p>
+              ) : events.length > 0 ? (
+                <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Participantes</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sorteios</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {events.map((event) => (
+                        <tr key={event.id}>
+                          <td className="px-4 py-3 text-sm text-gray-700">{event.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 capitalize">{event.status}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{event.participantes}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{event.sorteios}</td>
+                          <td className="px-4 py-3 text-sm text-right space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEvent(event.id)}
+                              className="inline-flex items-center px-4 py-2 border border-red-200 text-red-700 font-semibold rounded-full hover:bg-red-50 transition-colors"
+                            >
+                              Histórico
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => drawEventMutation.mutate(event.id)}
+                              className="inline-flex items-center px-4 py-2 bg-emerald-500 text-white font-semibold rounded-full hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                              disabled={drawEventMutation.isPending}
+                            >
+                              {drawEventMutation.isPending ? 'Sorteando...' : 'Sortear'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => cancelEventMutation.mutate(event.id)}
+                              className="inline-flex items-center px-4 py-2 border border-red-200 text-red-700 font-semibold rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                              disabled={cancelEventMutation.isPending}
+                            >
+                              Cancelar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                  Nenhum evento encontrado.
+                </p>
+              )}
+            </section>
+
+            {selectedEvent && history && (
+              <section className="space-y-3">
+                <h3 className="text-2xl font-semibold text-gray-800" style={{ fontFamily: "'Merriweather', serif" }}>
+                  Histórico do evento
+                </h3>
+                <p className="text-gray-600" style={{ fontFamily: "'Merriweather', serif" }}>
+                  <strong>{history.name}</strong> — status atual: <strong>{history.status}</strong>
+                </p>
+                <ul className="space-y-2">
+                  {history.sorteios.map((entry, index) => (
+                    <li key={index} className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                      {new Date(entry.drawnAt).toLocaleString()} · {entry.participantes} tickets emitidos
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        ) : (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-inner">
+            Informe o token administrativo e clique em “Entrar” para acessar os recursos.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- Componentes de UI Genéricos ---
 const Input: React.FC<{
   id: string;
@@ -975,6 +1851,8 @@ function App() {
             {page === 'home' && <HomePage navigate={navigate} />}
             {page === 'inscricao' && <RegistrationPage navigate={navigate} />}
             {page === 'listas' && <GiftListPage navigate={navigate} />}
+            {page === 'consulta' && <GiftLookupPage navigate={navigate} />}
+            {page === 'admin' && <AdminPage navigate={navigate} />}
           </main>
           <footer className="relative z-10 text-center py-6 mt-12">
             <p className="text-sm text-white/50" style={{ fontFamily: "'Merriweather', serif" }}>
