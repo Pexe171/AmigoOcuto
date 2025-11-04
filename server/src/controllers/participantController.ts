@@ -1,37 +1,54 @@
+// Este ficheiro deve estar em server/src/controllers/participantController.ts
 import { Request, Response } from 'express';
 import {
   registerParticipant,
   verifyParticipant,
   resendVerificationCode,
-  getParticipantOrFail
+  getParticipantOrFail,
 } from '../services/participantService';
 
-export const createParticipant = async (req: Request, res: Response): Promise<void> => {
+// Esta função é chamada quando fazes POST /api/participants
+export const createParticipant = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
+    // 1. Tenta registar o participante (aqui é que o email é disparado)
     const participant = await registerParticipant(req.body);
     res.status(201).json({
       id: participant._id,
-      message: 'Inscrição criada com sucesso. Verifique o e-mail informado para confirmar a participação.'
+      message:
+        'Inscrição criada com sucesso. Verifique o e-mail informado para confirmar a participação.',
     });
   } catch (error) {
+    // 2. Se falhar (ex: validação do Zod), devolve um erro 400
+    // (Foi isto que aconteceu no teu último log: POST 400)
     res.status(400).json({ message: (error as Error).message });
   }
 };
 
-export const confirmParticipant = async (req: Request, res: Response): Promise<void> => {
+// Esta função é chamada quando fazes POST /api/participants/verify
+export const confirmParticipant = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const participant = await verifyParticipant(req.body);
     res.json({
       id: participant._id,
       emailVerified: participant.emailVerified,
-      message: 'E-mail confirmado com sucesso. Prepare a sua lista de presentes!'
+      message: 'E-mail confirmado com sucesso. Prepare a sua lista de presentes!',
     });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
 };
 
-export const resendVerification = async (req: Request, res: Response): Promise<void> => {
+// Função para reenviar o código (não está a ser usada no frontend novo, mas existe)
+export const resendVerification = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   const { id } = req.params;
   if (!id) {
     res.status(400).json({ message: 'Informe o identificador da inscrição.' });
@@ -39,13 +56,19 @@ export const resendVerification = async (req: Request, res: Response): Promise<v
   }
   try {
     await resendVerificationCode(id);
-    res.json({ message: 'Um novo código foi enviado para o e-mail principal cadastrado.' });
+    res.json({
+      message: 'Um novo código foi enviado para o e-mail principal cadastrado.',
+    });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
 };
 
-export const getParticipantStatus = async (req: Request, res: Response): Promise<void> => {
+// Função para buscar o status (usada na página de lista de presentes)
+export const getParticipantStatus = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   const { id } = req.params;
   if (!id) {
     res.status(400).json({ message: 'Informe o identificador da inscrição.' });
@@ -60,7 +83,7 @@ export const getParticipantStatus = async (req: Request, res: Response): Promise
       nickname: participant.nickname,
       emailVerified: participant.emailVerified,
       isChild: participant.isChild,
-      attendingInPerson: participant.attendingInPerson
+      attendingInPerson: participant.attendingInPerson,
     });
   } catch (error) {
     res.status(404).json({ message: (error as Error).message });
