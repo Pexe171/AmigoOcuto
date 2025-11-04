@@ -77,6 +77,9 @@ export const getParticipantStatus = async (
   }
   try {
     const participant = await getParticipantOrFail(id);
+    const contactEmail = participant.isChild
+      ? participant.primaryGuardianEmail ?? participant.guardianEmails[0] ?? null
+      : participant.email ?? null;
     res.json({
       id: participant._id,
       firstName: participant.firstName,
@@ -84,7 +87,12 @@ export const getParticipantStatus = async (
       nickname: participant.nickname,
       emailVerified: participant.emailVerified,
       isChild: participant.isChild,
+      email: participant.email,
+      primaryGuardianEmail: participant.primaryGuardianEmail,
+      guardianEmails: participant.guardianEmails ?? [],
       attendingInPerson: participant.attendingInPerson,
+      contactEmail,
+      createdAt: participant.createdAt,
     });
   } catch (error) {
     res.status(404).json({ message: (error as Error).message });

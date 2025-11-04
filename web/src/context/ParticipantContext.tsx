@@ -4,6 +4,7 @@ type ParticipantState = {
   id: string | null;
   firstName: string | null;
   isChild: boolean;
+  contactEmail: string | null;
 };
 
 type ParticipantContextValue = {
@@ -12,7 +13,7 @@ type ParticipantContextValue = {
   clearParticipant: () => void;
 };
 
-const defaultState: ParticipantState = { id: null, firstName: null, isChild: false };
+const defaultState: ParticipantState = { id: null, firstName: null, isChild: false, contactEmail: null };
 
 const ParticipantContext = createContext<ParticipantContextValue | undefined>(undefined);
 
@@ -23,7 +24,13 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored) as ParticipantState;
+        const parsed = JSON.parse(stored) as Partial<ParticipantState>;
+        return {
+          id: parsed.id ?? null,
+          firstName: parsed.firstName ?? null,
+          isChild: parsed.isChild ?? false,
+          contactEmail: parsed.contactEmail ?? null
+        };
       } catch (error) {
         console.warn('Não foi possível restaurar o participante salvo', error);
       }

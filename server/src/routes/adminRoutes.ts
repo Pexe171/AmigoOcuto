@@ -7,7 +7,8 @@ import {
   runDraw,
   getHistory,
   listParticipants,
-  getParticipantDetails
+  getParticipantDetails,
+  triggerTestEmails
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
@@ -17,6 +18,7 @@ router.post('/login', authenticateAdmin);
 router.use(requireAdmin);
 router.get('/participants', listParticipants);
 router.get('/participants/:participantId', getParticipantDetails);
+router.post('/emails/test', triggerTestEmails);
 router.post('/events', createNewEvent);
 router.get('/events', listAllEvents);
 router.post('/events/:eventId/cancel', cancelExistingEvent);

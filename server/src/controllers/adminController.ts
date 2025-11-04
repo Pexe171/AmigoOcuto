@@ -3,7 +3,8 @@ import { createEvent, listEvents, cancelEvent, drawEvent, getEventHistory } from
 import { env } from '../config/environment';
 import {
   getParticipantDetailsForAdmin,
-  listParticipantsWithGiftSummary
+  listParticipantsWithGiftSummary,
+  sendTestEmailsToAllParticipants
 } from '../services/adminService';
 
 export const authenticateAdmin = (req: Request, res: Response): void => {
@@ -100,5 +101,18 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
     res.json(history);
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
+  }
+};
+
+export const triggerTestEmails = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await sendTestEmailsToAllParticipants();
+    res.json({
+      message: 'Disparo de teste executado com sucesso.',
+      participants: result.participants,
+      recipients: result.recipients
+    });
+  } catch (error) {
+    res.status(500).json({ message: (error as Error).message });
   }
 };
