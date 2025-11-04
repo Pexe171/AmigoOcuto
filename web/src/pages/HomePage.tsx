@@ -67,10 +67,10 @@ const HomePage: React.FC = () => {
         <p className="text-sm text-white/80 mt-6" style={{ fontFamily: "'Merriweather', serif" }}>
           Organização do evento?{' '}
           <Link
-            to="/admin"
+            to="/idm"
             className="underline underline-offset-4 decoration-white/60 hover:text-white transition-colors"
           >
-            Acesse o painel administrativo
+            Acesse com IDM
           </Link>
         </p>
       </div>
