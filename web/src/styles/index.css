@@ -1,158 +1,67 @@
-:root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #0f172a;
-  background-color: #f8fafc;
-  line-height: 1.5;
-}
+/* Este ficheiro deve estar em web/src/styles/index.css */
 
-* {
-  box-sizing: border-box;
-}
+/* Importa as classes base do Tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  margin: 0;
-  min-height: 100vh;
-}
-
-a {
-  color: inherit;
-}
-
-button {
-  font: inherit;
-}
-
-.container {
-  width: min(1100px, 90vw);
-  margin: 0 auto;
-}
-
-.shadow-card {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
-  padding: 32px;
-}
-
-.primary-button {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 12px 28px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.primary-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.25);
-}
-
-.secondary-button {
-  background: transparent;
-  border: 1px solid #cbd5f5;
-  color: #6366f1;
-  border-radius: 999px;
-  padding: 12px 24px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid #cbd5f5;
-  font-size: 1rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-}
-
-label {
-  font-weight: 600;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.form-grid {
-  display: grid;
-  gap: 20px;
-}
-
-@media (min-width: 768px) {
-  .form-grid.two-columns {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Define as fontes que carregámos no index.html como padrão do Tailwind.
+  'font-sans' (Merriweather) será a fonte de texto.
+  'font-display' (Mountains of Christmas) será a fonte dos títulos.
+*/
+@layer base {
+  html {
+    /* Define a fonte 'sans' (padrão) */
+    font-family: theme('fontFamily.sans');
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    /* Define a fonte 'display' (títulos) */
+    font-family: theme('fontFamily.display');
   }
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(99, 102, 241, 0.1);
-  color: #4338ca;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
+/* Define o fundo gradiente natalino (vermelho escuro e verde pinho).
+  Também esconde o 'overflow' para a animação da neve não criar barras de scroll.
+*/
+body {
+  background: linear-gradient(135deg, #4c0519 0%, #064e3b 100%);
+  color: #f1f5f9; /* Um texto "branco-sujo" (slate-100) que combina bem */
+  overflow: hidden;
 }
 
-.banner {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(14, 165, 233, 0.12));
-  border-radius: 24px;
-  padding: 40px;
-  margin-bottom: 40px;
-}
-
-.section-title {
-  font-size: 2rem;
-  margin-bottom: 24px;
-}
-
-.table {
+/* Animação de Neve
+  (Não precisas de mexer aqui, apenas funciona)
+*/
+.snow {
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-  border-collapse: collapse;
-  margin-top: 24px;
+  height: 100vh;
+  pointer-events: none;
+  z-index: -10; /* Coloca a neve atrás do conteúdo */
 }
 
-.table th,
-.table td {
-  text-align: left;
-  padding: 12px;
+.snowflake {
+  position: absolute;
+  top: -20px;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: fall linear infinite;
+  will-change: transform; /* Otimização para a animação */
 }
 
-.table tbody tr:nth-child(odd) {
-  background: #f1f5f9;
-}
-
-.alert {
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-}
-
-.alert.success {
-  background: rgba(34, 197, 94, 0.12);
-  color: #047857;
-}
-
-.alert.error {
-  background: rgba(239, 68, 68, 0.12);
-  color: #b91c1c;
-}
-
-.alert.info {
-  background: rgba(14, 165, 233, 0.12);
-  color: #0369a1;
+@keyframes fall {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.6;
+  }
+  100% {
+    /* Move a neve 100vh (toda a altura) e um pouco para o lado */
+    transform: translateY(100vh) translateX(100px);
+    opacity: 0.1;
+  }
 }
