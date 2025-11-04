@@ -99,10 +99,10 @@ npm --prefix web run build
 
 4. **Painel administrativo**
    - Em `/admin`, informe o token definido na variável `ADMIN_TOKEN`.
-   - Acompanhe a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
-   - Crie eventos selecionando participantes específicos ou incluindo todos os verificados.
-   - Execute o sorteio: tickets únicos são gerados e enviados via e-mail sem expor o mapeamento.
-   - Consulte o histórico de sorteios de cada evento. Para refazer, cancele o evento e crie outro.
+   - Consulte a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
+   - Acompanhe os eventos existentes e, quando todos os participantes estiverem verificados em número par, execute o sorteio com um único clique.
+   - Verifique o histórico de sorteios de cada evento. Todas as ações são de consulta, exceto o disparo do sorteio.
+   - Opcionalmente, utilize `/adm` para exibir o protótipo visual do portal corporativo ADM.
 
 5. **Consulta do sorteio**
    - Em `/consultar`, busque pelo nome do participante sorteado ou cole o ID recebido no e-mail para visualizar a lista de presentes correspondente.

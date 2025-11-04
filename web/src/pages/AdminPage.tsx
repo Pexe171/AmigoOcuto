@@ -1,20 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { z } from 'zod';
 import { api, extractErrorMessage } from '../services/api';
 import Notification from '../components/Notification';
 import { useNotification } from '../hooks/useNotification';
-
-const eventSchema = z.object({
-  name: z.string().min(4, 'Informe o nome do evento'),
-  participantIds: z.array(z.string()).optional()
-});
-
-type EventForm = {
-  name: string;
-  participantIds: string;
-};
 
 type EventSummary = {
   id: string;
@@ -79,7 +68,6 @@ const AdminPage: React.FC = () => {
   const [token, setToken] = useState<string>(() => localStorage.getItem(TOKEN_KEY) ?? '');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [shouldRestoreSession, setShouldRestoreSession] = useState<boolean>(() => Boolean(localStorage.getItem(TOKEN_KEY)));
-  const [form, setForm] = useState<EventForm>({ name: '', participantIds: '' });
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
 
@@ -172,57 +160,6 @@ const AdminPage: React.FC = () => {
     refetchOnWindowFocus: false
   });
 
-  const createEventMutation = useMutation<{ id: string }, unknown, void>({
-    mutationFn: async () => {
-      const parsed = eventSchema.safeParse({
-        name: form.name,
-        participantIds: form.participantIds
-          .split(/\s|,/)
-          .map((id) => id.trim())
-          .filter(Boolean)
-      });
-      if (!parsed.success) {
-        throw new Error(parsed.error.issues[0]?.message ?? 'Dados inválidos');
-      }
-      const response = await api.post(
-        '/admin/events',
-        {
-          name: parsed.data.name,
-          participantIds: parsed.data.participantIds?.length ? parsed.data.participantIds : undefined
-        },
-        authHeaders
-      );
-      return response.data as { id: string };
-    },
-    onSuccess: () => {
-      show('success', 'Evento criado e ativado com sucesso.');
-      setForm({ name: '', participantIds: '' });
-      void eventsQuery.refetch();
-    },
-    onError: (error) => {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        setIsAuthenticated(false);
-      }
-      show('error', extractErrorMessage(error));
-    }
-  });
-
-  const cancelEventMutation = useMutation<void, unknown, string>({
-    mutationFn: async (eventId) => {
-      await api.post(`/admin/events/${eventId}/cancel`, null, authHeaders);
-    },
-    onSuccess: () => {
-      show('success', 'Evento cancelado.');
-      void eventsQuery.refetch();
-    },
-    onError: (error) => {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        setIsAuthenticated(false);
-      }
-      show('error', extractErrorMessage(error));
-    }
-  });
-
   const drawEventMutation = useMutation<DrawResult, unknown, string>({
     mutationFn: async (eventId) => {
       const response = await api.post(`/admin/events/${eventId}/draw`, null, authHeaders);
@@ -293,12 +230,25 @@ const AdminPage: React.FC = () => {
   const history: EventHistory | undefined = historyQuery.data;
   const selectedParticipant: ParticipantDetail | null = participantDetailsQuery.data ?? null;
 
+  const getDrawButtonState = (event: EventSummary): { disabled: boolean; reason?: string } => {
+    if (event.status !== 'ativo') {
+      return { disabled: true, reason: 'Sorteios só podem ser feitos em eventos ativos.' };
+    }
+    if (event.participantes < 2) {
+      return { disabled: true, reason: 'É necessário ter pelo menos duas pessoas confirmadas.' };
+    }
+    if (event.participantes % 2 !== 0) {
+      return { disabled: true, reason: 'Confirme um número par de participantes antes de sortear.' };
+    }
+    return { disabled: false };
+  };
+
   return (
     <div className="container" style={{ padding: '48px 0' }}>
       <div className="shadow-card">
-        <h2 style={{ marginTop: 0 }}>Painel administrativo</h2>
+        <h2 style={{ marginTop: 0 }}>Painel ADM</h2>
         <p style={{ color: '#475569' }}>
-          Faça login com o token definido no backend, acompanhe os participantes confirmados e execute sorteios com segurança.
+          Faça login com o token administrativo para apenas visualizar os participantes confirmados, suas listas de presentes e executar sorteios com segurança.
         </p>
 
         {notification && <Notification type={notification.type} message={notification.message} onClose={clear} />}
@@ -465,43 +415,11 @@ const AdminPage: React.FC = () => {
               </section>
             )}
 
-            <section style={{ marginBottom: '32px' }}>
-              <h3>Novo evento</h3>
-              <div className="form-grid">
-                <div>
-                  <label htmlFor="eventName">Nome do evento</label>
-                  <input
-                    id="eventName"
-                    value={form.name}
-                    onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                    placeholder="Ex.: Amigo Ocuto 2025"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="participantIds">IDs de participantes (opcional)</label>
-                  <textarea
-                    id="participantIds"
-                    value={form.participantIds}
-                    onChange={(event) => setForm((prev) => ({ ...prev, participantIds: event.target.value }))}
-                    placeholder="Cole IDs separados por vírgula ou espaço para restringir o sorteio"
-                    rows={3}
-                  />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
-                    type="button"
-                    className="primary-button"
-                    onClick={() => createEventMutation.mutate()}
-                    disabled={createEventMutation.isPending}
-                  >
-                    {createEventMutation.isPending ? 'Criando...' : 'Criar evento'}
-                  </button>
-                </div>
-              </div>
-            </section>
-
             <section>
               <h3>Eventos cadastrados</h3>
+              <p style={{ color: '#475569', marginBottom: '12px' }}>
+                Os eventos são exibidos apenas para consulta. Utilize o botão “Sortear” quando todos os participantes estiverem confirmados e em número par.
+              </p>
               {eventsQuery.isLoading ? (
                 <p>Carregando eventos...</p>
               ) : events.length > 0 ? (
@@ -516,39 +434,35 @@ const AdminPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {events.map((event: EventSummary) => (
-                      <tr key={event.id}>
-                        <td>{event.name}</td>
-                        <td style={{ textTransform: 'capitalize' }}>{event.status}</td>
-                        <td>{event.participantes}</td>
-                        <td>{event.sorteios}</td>
-                        <td style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => setSelectedEvent(event.id)}
-                          >
-                            Histórico
-                          </button>
-                          <button
-                            type="button"
-                            className="primary-button"
-                            onClick={() => drawEventMutation.mutate(event.id)}
-                            disabled={drawEventMutation.isPending}
-                          >
-                            Sortear
-                          </button>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => cancelEventMutation.mutate(event.id)}
-                            disabled={cancelEventMutation.isPending}
-                          >
-                            Cancelar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {events.map((event: EventSummary) => {
+                      const drawState = getDrawButtonState(event);
+                      return (
+                        <tr key={event.id}>
+                          <td>{event.name}</td>
+                          <td style={{ textTransform: 'capitalize' }}>{event.status}</td>
+                          <td>{event.participantes}</td>
+                          <td>{event.sorteios}</td>
+                          <td style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => setSelectedEvent(event.id)}
+                            >
+                              Histórico
+                            </button>
+                            <button
+                              type="button"
+                              className="primary-button"
+                              onClick={() => drawEventMutation.mutate(event.id)}
+                              disabled={drawEventMutation.isPending || drawState.disabled}
+                              title={drawState.reason ?? undefined}
+                            >
+                              {drawEventMutation.isPending ? 'Sorteando...' : 'Sortear'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (

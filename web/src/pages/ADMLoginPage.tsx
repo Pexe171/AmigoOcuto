@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const IDMLoginPage: React.FC = () => {
+const ADMLoginPage: React.FC = () => {
   return (
     <section className="relative z-10 flex flex-col items-center justify-center px-6 pb-16">
       <div className="w-full max-w-xl bg-white/15 backdrop-blur-sm border border-white/30 rounded-3xl shadow-2xl p-8 md:p-10">
@@ -10,30 +10,30 @@ const IDMLoginPage: React.FC = () => {
             className="inline-flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-full bg-emerald-600/80 text-white shadow-lg"
             style={{ fontFamily: "'Merriweather', serif" }}
           >
-            🎄 Portal Administrativo IDM
+            🎄 Portal Administrativo ADM
           </p>
           <h2
             className="mt-4 text-3xl md:text-4xl font-bold text-white"
             style={{ fontFamily: "'Merriweather', serif" }}
           >
-            Faça login com o seu IDM
+            Faça login com o seu ADM
           </h2>
           <p className="mt-2 text-white/80" style={{ fontFamily: "'Merriweather', serif" }}>
-            Utilize o e-mail corporativo e a senha do IDM para continuar.
+            Utilize o e-mail corporativo e a senha do ADM para continuar.
           </p>
         </header>
 
         <form className="space-y-6">
           <div className="flex flex-col gap-2">
             <label
-              htmlFor="idm-email"
+              htmlFor="adm-email"
               className="text-sm font-semibold uppercase tracking-wider text-white/90"
               style={{ fontFamily: "'Merriweather', serif" }}
             >
-              E-mail IDM
+              E-mail ADM
             </label>
             <input
-              id="idm-email"
+              id="adm-email"
               type="email"
               inputMode="email"
               autoComplete="email"
@@ -44,14 +44,14 @@ const IDMLoginPage: React.FC = () => {
 
           <div className="flex flex-col gap-2">
             <label
-              htmlFor="idm-password"
+              htmlFor="adm-password"
               className="text-sm font-semibold uppercase tracking-wider text-white/90"
               style={{ fontFamily: "'Merriweather', serif" }}
             >
-              Senha IDM
+              Senha ADM
             </label>
             <input
-              id="idm-password"
+              id="adm-password"
               type="password"
               autoComplete="current-password"
               placeholder="Digite sua senha"
@@ -86,7 +86,7 @@ const IDMLoginPage: React.FC = () => {
         <div className="mt-8 rounded-2xl border border-white/20 bg-black/20 p-4 text-sm text-white/80" style={{ fontFamily: "'Merriweather', serif" }}>
           <h3 className="text-base font-semibold text-white mb-2">Acesso restrito</h3>
           <p>
-            Apenas administradores do evento com credenciais IDM válidas podem
+            Apenas administradores do evento com credenciais ADM válidas podem
             avançar para o painel de gestão. Se você precisa de acesso, contate a equipe
             organizadora.
           </p>
@@ -106,4 +106,4 @@ const IDMLoginPage: React.FC = () => {
   );
 };
 
-export default IDMLoginPage;
+export default ADMLoginPage;
