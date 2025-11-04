@@ -1,5 +1,38 @@
 import { Request, Response } from 'express';
 import { createEvent, listEvents, cancelEvent, drawEvent, getEventHistory } from '../services/eventService';
+import { env } from '../config/environment';
+import {
+  getParticipantDetailsForAdmin,
+  listParticipantsWithGiftSummary
+} from '../services/adminService';
+
+export const authenticateAdmin = (req: Request, res: Response): void => {
+  const { token } = req.body as { token?: string };
+  if (!token || token !== env.ADMIN_TOKEN) {
+    res.status(401).json({ message: 'Token administrativo inválido.' });
+    return;
+  }
+  res.json({ message: 'Acesso autorizado.' });
+};
+
+export const listParticipants = async (_req: Request, res: Response): Promise<void> => {
+  const participants = await listParticipantsWithGiftSummary();
+  res.json(participants);
+};
+
+export const getParticipantDetails = async (req: Request, res: Response): Promise<void> => {
+  const { participantId } = req.params;
+  if (!participantId) {
+    res.status(400).json({ message: 'Informe o identificador do participante.' });
+    return;
+  }
+  try {
+    const details = await getParticipantDetailsForAdmin(participantId);
+    res.json(details);
+  } catch (error) {
+    res.status(404).json({ message: (error as Error).message });
+  }
+};
 
 export const createNewEvent = async (req: Request, res: Response): Promise<void> => {
   try {

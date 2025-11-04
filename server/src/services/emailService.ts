@@ -3,8 +3,16 @@ import { mailer } from '../config/mailer';
 import { ParticipantDocument } from '../models/Participant';
 import { GiftItem } from '../models/GiftList';
 
+export type ParticipantContact = {
+  firstName: string;
+  isChild: boolean;
+  email?: string;
+  primaryGuardianEmail?: string;
+  guardianEmails: string[];
+};
+
 // Função auxiliar para encontrar todos os e-mails de um participante (incluindo responsáveis)
-const buildGuardianList = (participant: ParticipantDocument): string[] => {
+const buildGuardianList = (participant: ParticipantContact): string[] => {
   const guardians = new Set<string>();
   if (participant.primaryGuardianEmail) {
     guardians.add(participant.primaryGuardianEmail);
@@ -15,16 +23,18 @@ const buildGuardianList = (participant: ParticipantDocument): string[] => {
 
 // Função que envia o E-MAIL DE VERIFICAÇÃO
 export const sendVerificationEmail = async (
-  participant: ParticipantDocument,
+  participant: ParticipantContact,
   code: string,
 ): Promise<void> => {
   // Decide para quem enviar: para o próprio adulto, ou para os responsáveis se for criança
   const recipients = participant.isChild
     ? buildGuardianList(participant)
-    : [participant.email!];
+    : participant.email
+      ? [participant.email]
+      : buildGuardianList(participant);
   const mainRecipient = participant.isChild
     ? participant.primaryGuardianEmail ?? recipients[0]
-    : participant.email!;
+    : participant.email ?? recipients[0];
 
   // O HTML do e-mail
   const html = `

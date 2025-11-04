@@ -7,6 +7,7 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 - **Inscrições inteligentes** para adultos e crianças, com validação automática de e-mail e coleta opcional de apelido.
 - **Listas de presentes integradas** para cada participante, com prioridade, descrições e links.
 - **Sorteio sigiloso** realizado via painel administrativo. O histórico registra tickets emitidos sem revelar quem tirou quem.
+- **Consulta rápida do sorteio**: cada participante utiliza nome ou ID para acessar a lista de presentes do sorteado sem quebrar o segredo.
 - **Notificações por e-mail** configuráveis via SMTP ou modo console para ambientes de teste.
 
 ## Estrutura do projeto
@@ -91,15 +92,21 @@ npm --prefix web run build
 
 2. **Confirmação de e-mail**
    - Em `/confirmacao`, informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail. Aproveite para indicar se participará presencialmente no encontro principal.
+   - Somente após essa confirmação os dados são persistidos na coleção principal; inscrições pendentes podem refazer o processo sem bloquear o e-mail.
 
 3. **Lista de presentes**
    - Em `/listas`, cole o ID da inscrição para buscar ou atualizar a lista de presentes. É possível adicionar até 50 itens com prioridade, descrição e link.
 
 4. **Painel administrativo**
    - Em `/admin`, informe o token definido na variável `ADMIN_TOKEN`.
+   - Acompanhe a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
    - Crie eventos selecionando participantes específicos ou incluindo todos os verificados.
    - Execute o sorteio: tickets únicos são gerados e enviados via e-mail sem expor o mapeamento.
    - Consulte o histórico de sorteios de cada evento. Para refazer, cancele o evento e crie outro.
+
+5. **Consulta do sorteio**
+   - Em `/consultar`, busque pelo nome do participante sorteado ou cole o ID recebido no e-mail para visualizar a lista de presentes correspondente.
+   - O acesso é público e não revela quem tirou quem, apenas expõe as preferências do participante consultado.
 
 ## Testes e lint
 
@@ -112,6 +119,7 @@ npm --prefix web run build
 - Separação em camadas (serviços, controladores, rotas) na API.
 - **React Query** e **React Hook Form** para experiência fluida na interface.
 - Armazenamento seguro de tokens administrativos e IDs de participantes no `localStorage` com feedback contextual.
+- Persistência apenas de inscrições com e-mail confirmado, mantendo as pendentes em coleção separada até a validação.
 
 ## Próximos passos sugeridos
 
