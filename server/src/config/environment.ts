@@ -7,6 +7,10 @@ const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
   PORT: z.coerce.number().default(4000),
   MONGO_URI: z.string().default('mongodb://127.0.0.1:27017/amigoocuto'),
+  MONGO_IN_MEMORY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   ADMIN_TOKEN: z.string().default('admin-token'),
   MAILER_MODE: z.enum(['smtp', 'console']).default('console'),
   SMTP_HOST: z.string().optional(),

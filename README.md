@@ -33,11 +33,14 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 2. Ajuste as variáveis no `.env`:
 
    - `MONGO_URI`: string de conexão com seu cluster MongoDB (incluindo o nome da base, ex.: `.../amigoocuto`).
+   - `MONGO_IN_MEMORY`: defina como `true` para iniciar um MongoDB em memória (ótimo para quem não tem um servidor local).
    - `ADMIN_TOKEN`: token secreto utilizado pelo painel administrativo.
    - Para enviar e-mails reais, defina `MAILER_MODE=smtp` e configure também `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `MAIL_FROM`.
    - Se for usar Gmail, gere uma [senha de app](https://myaccount.google.com/apppasswords) após ativar a verificação em duas etapas e utilize-a em `SMTP_PASS`.
 
    > **Dica:** Para facilitar o desenvolvimento local, a API usa `mongodb://127.0.0.1:27017/amigoocuto` e `admin-token` como valores padrão caso o `.env` não esteja presente. Ainda assim, personalize essas credenciais antes de subir o projeto para produção.
+   >
+   > Se o MongoDB configurado não estiver acessível, o backend tentará automaticamente iniciar uma instância em memória (somente fora de produção) e informará isso no console. Você também pode habilitar esse comportamento diretamente ativando `MONGO_IN_MEMORY=true` no `.env`.
 
 3. Instale dependências e inicie o servidor em modo desenvolvimento:
 
