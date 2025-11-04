@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { ParticipantModel, ParticipantDocument } from '../models/Participant';
-import { sendVerificationEmail } from './emailService';
+import { PendingParticipantModel, PendingParticipantDocument } from '../models/PendingParticipant';
+import { sendVerificationEmail, ParticipantContact } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
 
 const verificationTTLMinutes = 30;
@@ -23,9 +24,26 @@ const verificationSchema = z.object({
   attendingInPerson: z.boolean().optional()
 });
 
+const searchSchema = z.string().trim().min(2, 'Informe pelo menos duas letras para pesquisar.').max(80);
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export type RegistrationInput = z.infer<typeof registrationSchema>;
 
-export const registerParticipant = async (input: RegistrationInput): Promise<ParticipantDocument> => {
+const buildGuardianList = (primary?: string | null, extras: string[] = []): string[] => {
+  const set = new Set<string>();
+  if (primary) {
+    set.add(primary);
+  }
+  extras.forEach((email) => {
+    if (email) {
+      set.add(email);
+    }
+  });
+  return Array.from(set);
+};
+
+export const registerParticipant = async (input: RegistrationInput): Promise<PendingParticipantDocument> => {
   const data = registrationSchema.parse(input);
 
   if (data.isChild) {
@@ -36,10 +54,12 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Par
     if (!data.email) {
       throw new Error('Adultos precisam informar um e-mail para contato.');
     }
-    const existing = await ParticipantModel.findOne({ email: data.email.toLowerCase() });
+    const normalizedEmail = data.email.toLowerCase();
+    const existing = await ParticipantModel.findOne({ email: normalizedEmail });
     if (existing) {
-      throw new Error('Este e-mail já está inscrito.');
+      throw new Error('Este e-mail já está inscrito e confirmado.');
     }
+    await PendingParticipantModel.deleteMany({ email: normalizedEmail });
   }
 
   const verificationCode = generateVerificationCode();
@@ -48,21 +68,40 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Par
     expiresAt: new Date(Date.now() + verificationTTLMinutes * 60 * 1000)
   };
 
-  const participant = new ParticipantModel({
+  const primaryGuardianEmail = data.primaryGuardianEmail?.toLowerCase();
+  const normalizedGuardianEmails = data.guardianEmails?.map((email) => email.toLowerCase()) ?? [];
+  const guardianEmails = data.isChild
+    ? buildGuardianList(primaryGuardianEmail, normalizedGuardianEmails)
+    : [];
+
+  const participant = new PendingParticipantModel({
     firstName: data.firstName,
     secondName: data.secondName,
     nickname: data.nickname,
     email: data.email?.toLowerCase(),
     isChild: data.isChild,
-    primaryGuardianEmail: data.primaryGuardianEmail?.toLowerCase(),
-    guardianEmails: data.guardianEmails?.map((email) => email.toLowerCase()) ?? [],
-    emailVerified: false,
+    primaryGuardianEmail,
+    guardianEmails,
     verification,
     attendingInPerson: data.attendingInPerson
   });
 
   await participant.save();
-  await sendVerificationEmail(participant, verificationCode);
+  const contact: ParticipantContact = {
+    firstName: participant.firstName,
+    isChild: participant.isChild,
+    guardianEmails: participant.guardianEmails
+  };
+
+  if (participant.primaryGuardianEmail) {
+    contact.primaryGuardianEmail = participant.primaryGuardianEmail;
+  }
+
+  if (participant.email) {
+    contact.email = participant.email;
+  }
+
+  await sendVerificationEmail(contact, verificationCode);
 
   return participant;
 };
@@ -72,48 +111,79 @@ export const verifyParticipant = async (
 ): Promise<ParticipantDocument> => {
   const data = verificationSchema.parse(input);
 
-  const participant = await ParticipantModel.findById(data.participantId);
-  if (!participant || !participant.verification) {
+  const pending = await PendingParticipantModel.findById(data.participantId);
+  if (!pending) {
+    const already = await ParticipantModel.findById(data.participantId);
+    if (already && already.emailVerified) {
+      throw new Error('Esta inscrição já foi confirmada anteriormente.');
+    }
     throw new Error('Inscrição não encontrada ou já verificada.');
   }
 
-  if (participant.verification.expiresAt.getTime() < Date.now()) {
+  if (pending.verification.expiresAt.getTime() < Date.now()) {
     throw new Error('O código de verificação expirou. Solicite um novo.');
   }
 
-  const isValidCode = await bcrypt.compare(data.code, participant.verification.codeHash);
+  const isValidCode = await bcrypt.compare(data.code, pending.verification.codeHash);
   if (!isValidCode) {
     throw new Error('Código inválido. Confira o e-mail enviado.');
   }
 
-  participant.emailVerified = true;
-  participant.set('verification', undefined);
-  if (typeof data.attendingInPerson === 'boolean') {
-    participant.attendingInPerson = data.attendingInPerson;
-  }
+  const participant = new ParticipantModel({
+    _id: pending._id,
+    firstName: pending.firstName,
+    secondName: pending.secondName,
+    nickname: pending.nickname,
+    email: pending.email,
+    isChild: pending.isChild,
+    primaryGuardianEmail: pending.primaryGuardianEmail,
+    guardianEmails: pending.guardianEmails,
+    emailVerified: true,
+    attendingInPerson:
+      typeof data.attendingInPerson === 'boolean' ? data.attendingInPerson : pending.attendingInPerson
+  });
+
+  participant.set('createdAt', pending.createdAt);
+  participant.set('updatedAt', new Date());
 
   await participant.save();
+  await PendingParticipantModel.deleteOne({ _id: pending._id });
+
   return participant;
 };
 
 export const resendVerificationCode = async (participantId: string): Promise<void> => {
-  const participant = await ParticipantModel.findById(participantId);
-  if (!participant) {
-    throw new Error('Participante não encontrado.');
-  }
-
-  if (participant.emailVerified) {
-    throw new Error('Este participante já confirmou o e-mail.');
+  const pending = await PendingParticipantModel.findById(participantId);
+  if (!pending) {
+    const participant = await ParticipantModel.findById(participantId);
+    if (participant && participant.emailVerified) {
+      throw new Error('Este participante já confirmou o e-mail.');
+    }
+    throw new Error('Inscrição não encontrada. Faça uma nova inscrição.');
   }
 
   const verificationCode = generateVerificationCode();
-  participant.verification = {
+  pending.verification = {
     codeHash: await bcrypt.hash(verificationCode, 10),
     expiresAt: new Date(Date.now() + verificationTTLMinutes * 60 * 1000)
   };
 
-  await participant.save();
-  await sendVerificationEmail(participant, verificationCode);
+  await pending.save();
+  const pendingContact: ParticipantContact = {
+    firstName: pending.firstName,
+    isChild: pending.isChild,
+    guardianEmails: pending.guardianEmails
+  };
+
+  if (pending.primaryGuardianEmail) {
+    pendingContact.primaryGuardianEmail = pending.primaryGuardianEmail;
+  }
+
+  if (pending.email) {
+    pendingContact.email = pending.email;
+  }
+
+  await sendVerificationEmail(pendingContact, verificationCode);
 };
 
 export const getParticipantOrFail = async (participantId: string): Promise<ParticipantDocument> => {
@@ -126,4 +196,29 @@ export const getParticipantOrFail = async (participantId: string): Promise<Parti
 
 export const listVerifiedParticipants = async (): Promise<ParticipantDocument[]> => {
   return ParticipantModel.find({ emailVerified: true }).sort({ createdAt: 1 }).exec();
+};
+
+export const searchParticipants = async (term: string): Promise<ParticipantDocument[]> => {
+  const query = searchSchema.parse(term);
+  const regex = new RegExp(escapeRegExp(query), 'i');
+
+  return ParticipantModel.find({
+    emailVerified: true,
+    $or: [
+      { firstName: regex },
+      { secondName: regex },
+      { nickname: regex },
+      {
+        $expr: {
+          $regexMatch: {
+            input: { $concat: ['$firstName', ' ', '$secondName'] },
+            regex
+          }
+        }
+      }
+    ]
+  })
+    .sort({ firstName: 1, secondName: 1 })
+    .limit(15)
+    .exec();
 };

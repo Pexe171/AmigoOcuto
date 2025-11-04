@@ -1,16 +1,22 @@
 import { Router } from 'express';
 import {
+  authenticateAdmin,
   createNewEvent,
   listAllEvents,
   cancelExistingEvent,
   runDraw,
-  getHistory
+  getHistory,
+  listParticipants,
+  getParticipantDetails
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
 const router = Router();
 
+router.post('/login', authenticateAdmin);
 router.use(requireAdmin);
+router.get('/participants', listParticipants);
+router.get('/participants/:participantId', getParticipantDetails);
 router.post('/events', createNewEvent);
 router.get('/events', listAllEvents);
 router.post('/events/:eventId/cancel', cancelExistingEvent);
