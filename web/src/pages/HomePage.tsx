@@ -1,65 +1,79 @@
+// Este ficheiro deve estar em web/src/pages/HomePage.tsx
+import React from 'react';
 import { Link } from 'react-router-dom';
 
-const FeatureCard: React.FC<{ title: string; description: string }> = ({ title, description }) => (
-  <div className="shadow-card" style={{ flex: 1 }}>
-    <h3 style={{ marginTop: 0 }}>{title}</h3>
-    <p style={{ color: '#475569' }}>{description}</p>
-  </div>
+// Componente auxiliar para estilização e comportamentos dos botões (Link)
+const ButtonStyle: React.FC<{ to: string, className: string, children: React.ReactNode }> = ({ to, className, children }) => (
+  <Link
+    to={to}
+    className={`
+      w-full sm:w-auto font-bold py-3 px-8 rounded-full shadow-lg 
+      transform transition-all duration-200 ease-in-out 
+      hover:scale-[1.02] active:scale-[0.98] active:shadow-md 
+      focus:outline-none focus:ring-4 focus:ring-offset-2
+      ${className}
+    `}
+  >
+    {children}
+  </Link>
 );
 
 const HomePage: React.FC = () => {
   return (
-    <div className="container" style={{ padding: '48px 0 80px' }}>
-      <section className="banner">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <span className="badge">Amigo Ocuto 2025</span>
-          <h1 style={{ fontSize: '2.5rem', margin: 0 }}>Experiência profissional para o seu amigo oculto</h1>
-          <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '620px' }}>
-            Centralize as inscrições, valide e-mails automaticamente, colete listas de presentes, execute sorteios sigilosos e permita que cada participante consulte o resultado com segurança.
-          </p>
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <Link to="/inscricao" className="primary-button">
-              Começar inscrição
-            </Link>
-            <Link to="/listas" className="secondary-button">
-              Construir lista de presentes
-            </Link>
-            <Link to="/consultar" className="secondary-button">
-              Consultar presente sorteado
-            </Link>
-          </div>
+    <div className="relative z-10 flex flex-col items-center justify-center text-center p-6">
+      {/* CARD DE CONTEÚDO: Ajustado para maior opacidade e sombra mais suave */}
+      <div className="w-full max-w-lg bg-white/15 backdrop-blur-sm p-8 md:p-12 rounded-3xl shadow-2xl border border-white/30">
+        <h2 
+          className="text-3xl md:text-4xl font-bold text-white mb-4"
+          style={{ fontFamily: "'Merriweather', serif" }}
+        >
+          Bem-vindo!
+        </h2>
+        <p 
+          className="text-lg text-white/90 mb-8"
+          style={{ fontFamily: "'Merriweather', serif" }}
+        >
+          Participe do nosso amigo oculto de Natal. Inscreva-se ou consulte sua lista de presentes.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
+          
+          {/* Botão Primário: Inscrever-se (Vermelho Vibrante) */}
+          <ButtonStyle 
+            to="/inscricao"
+            className="bg-red-600 text-white shadow-red-800/50 hover:bg-red-700 focus:ring-red-500"
+          >
+            Inscrever-se
+          </ButtonStyle>
+          
+          {/* Botão Secundário: Construir Lista (Branco/Vermelho para contraste) */}
+          <ButtonStyle
+            to="/listas"
+            className="bg-white text-red-700 shadow-white/50 hover:bg-gray-100 focus:ring-white"
+          >
+            Construir Lista
+          </ButtonStyle>
+          
+          {/* Botão de Destaque: Consultar Amigo Sorteado (Verde Natal) */}
+          <ButtonStyle
+            to="/consultar"
+            className="bg-emerald-600 text-white shadow-emerald-800/50 hover:bg-emerald-700 focus:ring-emerald-500"
+          >
+            Consultar Amigo Sorteado
+          </ButtonStyle>
         </div>
-      </section>
-
-      <section style={{ marginTop: '48px' }}>
-        <h2 className="section-title">Tudo que você precisa em um só lugar</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-            <FeatureCard
-              title="Inscrição inteligente"
-              description="Formulário adaptável para adultos e crianças, com coleta de apelidos, preferências e responsáveis."
-            />
-            <FeatureCard
-              title="Verificação automática"
-              description="Envio de código por e-mail para garantir que cada participante esteja realmente confirmado."
-            />
-          </div>
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-            <FeatureCard
-              title="Listas de presentes colaborativas"
-              description="Organize as sugestões de presentes com prioridade, links e observações para evitar compras duplicadas."
-            />
-            <FeatureCard
-              title="Consulta rápida e segura"
-              description="Cada participante recebe o ID do sorteado e pode acessar a lista de presentes sem revelar o segredo."
-            />
-            <FeatureCard
-              title="Painel administrativo completo"
-              description="Acompanhe inscritos confirmados, visualize listas e execute sorteios auditáveis com apenas um clique."
-            />
-          </div>
-        </div>
-      </section>
+        
+        {/* Link Admin */}
+        <p className="text-sm text-white/80 mt-6" style={{ fontFamily: "'Merriweather', serif" }}>
+          Organização do evento?{' '}
+          <Link
+            to="/admin"
+            className="underline underline-offset-4 decoration-white/60 hover:text-white transition-colors"
+          >
+            Acesse o painel administrativo
+          </Link>
+        </p>
+      </div>
     </div>
   );
 };
