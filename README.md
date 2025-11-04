@@ -35,6 +35,8 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
    - `MONGO_URI`: string de conexão com seu cluster MongoDB (pode ser sem o nome da base, ex.: `mongodb://127.0.0.1:27017`).
    - `MONGO_DB_NAME`: nome da base de dados onde os dados serão armazenados (padrão: `amigoocuto`).
    - `MONGO_IN_MEMORY`: defina como `true` para iniciar um MongoDB em memória (ótimo para quem não tem um servidor local).
+     > Garanta que o utilizador configurado no cluster possua a permissão **readWrite** (ou equivalente). Sem direito de `find`,
+     > a API entrará automaticamente em modo em memória em ambientes de desenvolvimento e interromperá a inicialização em produção.
    - `ADMIN_TOKEN`: token secreto utilizado pelo painel administrativo.
    - Para enviar e-mails reais, defina `MAILER_MODE=smtp` e configure também `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `MAIL_FROM`.
    - Se for usar Gmail, gere uma [senha de app](https://myaccount.google.com/apppasswords) após ativar a verificação em duas etapas e utilize-a em `SMTP_PASS`.
