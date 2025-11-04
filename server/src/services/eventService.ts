@@ -107,6 +107,10 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     throw new Error('São necessários pelo menos dois participantes verificados para o sorteio.');
   }
 
+  if (verifiedParticipants.length % 2 !== 0) {
+    throw new Error('O sorteio exige um número par de participantes verificados.');
+  }
+
   const assignments = ensureNoSelfAssignment<ParticipantDocument>(verifiedParticipants);
 
   const tickets: TicketDocument[] = [];

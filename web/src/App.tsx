@@ -7,7 +7,7 @@ import VerificationPage from './pages/VerificationPage';
 import GiftListPage from './pages/GiftListPage';
 import GiftLookupPage from './pages/GiftLookupPage';
 import AdminPage from './pages/AdminPage';
-import IDMLoginPage from './pages/IDMLoginPage';
+import ADMLoginPage from './pages/ADMLoginPage';
 
 // --- Componente Decorativo: Neve ---
 const Snowfall: React.FC = () => (
@@ -86,7 +86,7 @@ const App: React.FC = () => {
             <Route path="/confirmacao" element={<VerificationPage />} />
             <Route path="/listas" element={<GiftListPage />} />
             <Route path="/consultar" element={<GiftLookupPage />} />
-            <Route path="/idm" element={<IDMLoginPage />} />
+            <Route path="/adm" element={<ADMLoginPage />} />
             <Route path="/admin" element={<AdminPage />} />
             
             {/* Redireciona qualquer rota não encontrada para a Home */}
