@@ -15,7 +15,7 @@ const HomePage: React.FC = () => {
           <span className="badge">Amigo Ocuto 2025</span>
           <h1 style={{ fontSize: '2.5rem', margin: 0 }}>Experiência profissional para o seu amigo oculto</h1>
           <p style={{ fontSize: '1.1rem', color: '#475569', maxWidth: '620px' }}>
-            Centralize as inscrições, valide e-mails automaticamente, colete listas de presentes e execute sorteios sigilosos com histórico auditável.
+            Centralize as inscrições, valide e-mails automaticamente, colete listas de presentes, execute sorteios sigilosos e permita que cada participante consulte o resultado com segurança.
           </p>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             <Link to="/inscricao" className="primary-button">
@@ -23,6 +23,9 @@ const HomePage: React.FC = () => {
             </Link>
             <Link to="/listas" className="secondary-button">
               Construir lista de presentes
+            </Link>
+            <Link to="/consultar" className="secondary-button">
+              Consultar presente sorteado
             </Link>
           </div>
         </div>
@@ -47,8 +50,12 @@ const HomePage: React.FC = () => {
               description="Organize as sugestões de presentes com prioridade, links e observações para evitar compras duplicadas."
             />
             <FeatureCard
-              title="Sorteio transparente"
-              description="O painel administrativo gera tickets e histórico sem revelar quem tirou quem, preservando o segredo."
+              title="Consulta rápida e segura"
+              description="Cada participante recebe o ID do sorteado e pode acessar a lista de presentes sem revelar o segredo."
+            />
+            <FeatureCard
+              title="Painel administrativo completo"
+              description="Acompanhe inscritos confirmados, visualize listas e execute sorteios auditáveis com apenas um clique."
             />
           </div>
         </div>
