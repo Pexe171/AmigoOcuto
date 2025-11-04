@@ -51,6 +51,8 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
    O comando `npm install` na raiz instala as dependências de ambos os pacotes graças ao uso de workspaces.
 
+   > Para levantar backend e frontend juntos, utilize `npm run dev`, que executa `server` e `web` em paralelo.
+
 4. Para gerar a versão compilada:
 
    ```bash
@@ -59,13 +61,15 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
 ## Configuração da interface web (`web`)
 
-Com as dependências já instaladas na etapa anterior, execute:
+Com as dependências já instaladas na etapa anterior, você pode subir apenas a interface com:
 
 ```bash
 npm run dev:web
 ```
 
 A aplicação estará disponível em `http://localhost:5173`, com proxy configurado para encaminhar as requisições `/api` ao servidor backend (`http://localhost:4000`).
+
+Se preferir subir ambos os serviços com um único comando, basta executar `npm run dev` na raiz do projeto.
 
 Para gerar build de produção:
 
