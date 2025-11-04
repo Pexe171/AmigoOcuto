@@ -77,6 +77,9 @@ Para gerar build de produção:
 npm --prefix web run build
 ```
 
+> **Compatibilidade com Windows:** configuramos o Vite para utilizar automaticamente a versão JavaScript do Rollup.
+> Assim, mesmo que o npm falhe ao baixar o pacote opcional `@rollup/rollup-win32-x64-msvc`, o `npm run dev` continua funcionando normalmente.
+
 ## Fluxo de uso
 
 1. **Inscrição**
