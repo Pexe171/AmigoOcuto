@@ -14,7 +14,20 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
-    ADMIN_TOKEN: z.string().default('admin-token'),
+    ADMIN_EMAIL: z.string().email().default('admin@amigoocuto.com'),
+    ADMIN_PASSWORD: z
+      .string()
+      .min(8, 'ADMIN_PASSWORD deve ter pelo menos 8 caracteres.')
+      .default('troque-esta-senha'),
+    ADMIN_JWT_SECRET: z
+      .string()
+      .min(16, 'ADMIN_JWT_SECRET deve ter pelo menos 16 caracteres.')
+      .default('troque-este-segredo-super-seguro'),
+    ADMIN_SESSION_MINUTES: z.coerce
+      .number()
+      .min(5, 'ADMIN_SESSION_MINUTES deve ser no mínimo 5 minutos.')
+      .max(24 * 60, 'ADMIN_SESSION_MINUTES pode ter até 24 horas.')
+      .default(120),
     MAILER_MODE: z.enum(['smtp', 'console']).default('console'),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().optional(),

@@ -7,6 +7,7 @@ import {
   getParticipantOrFail,
   searchParticipants,
 } from '../services/participantService';
+import { ensureNames } from '../utils/nameUtils';
 
 // Esta função é chamada quando fazes POST /api/participants
 export const createParticipant = async (
@@ -80,10 +81,16 @@ export const getParticipantStatus = async (
     const contactEmail = participant.isChild
       ? participant.primaryGuardianEmail ?? participant.guardianEmails[0] ?? null
       : participant.email ?? null;
+    const names = ensureNames({
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+    });
+
     res.json({
       id: participant._id,
       firstName: participant.firstName,
       secondName: participant.secondName,
+      fullName: names.fullName,
       nickname: participant.nickname,
       emailVerified: participant.emailVerified,
       isChild: participant.isChild,
@@ -109,14 +116,22 @@ export const searchParticipantsByName = async (req: Request, res: Response): Pro
   try {
     const results = await searchParticipants(q);
     res.json({
-      results: results.map((participant) => ({
-        id: participant._id,
-        firstName: participant.firstName,
-        secondName: participant.secondName,
-        nickname: participant.nickname,
-        emailVerified: participant.emailVerified,
-        isChild: participant.isChild
-      }))
+      results: results.map((participant) => {
+        const names = ensureNames({
+          firstName: participant.firstName,
+          secondName: participant.secondName,
+        });
+
+        return {
+          id: participant._id,
+          firstName: participant.firstName,
+          secondName: participant.secondName,
+          fullName: names.fullName,
+          nickname: participant.nickname,
+          emailVerified: participant.emailVerified,
+          isChild: participant.isChild,
+        };
+      })
     });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });

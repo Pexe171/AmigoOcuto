@@ -11,6 +11,7 @@ type ParticipantResult = {
   id: string;
   firstName: string;
   secondName: string;
+  fullName: string;
   nickname?: string;
   isChild: boolean;
 };
@@ -19,6 +20,7 @@ type ParticipantStatus = {
   id: string;
   firstName: string;
   secondName: string;
+  fullName: string;
   nickname?: string;
   emailVerified: boolean;
   isChild: boolean;
@@ -71,9 +73,9 @@ const GiftLookupPage: React.FC = () => {
       setSelectedParticipant(status);
       setGifts(giftData.items ?? []);
       if (giftData.items.length === 0) {
-        show('info', `Nenhum presente cadastrado por ${status.firstName} ${status.secondName} até o momento.`);
+        show('info', `Nenhum presente cadastrado por ${status.fullName} até o momento.`);
       } else {
-        show('success', `Lista carregada para ${status.firstName} ${status.secondName}.`);
+        show('success', `Lista carregada para ${status.fullName}.`);
       }
     } catch (error) {
       show('error', extractErrorMessage(error));
@@ -175,9 +177,7 @@ const GiftLookupPage: React.FC = () => {
               <tbody className="divide-y divide-white/10">
                 {results.map((participant) => (
                   <tr key={participant.id}>
-                    <td className="px-4 py-3">
-                      {participant.firstName} {participant.secondName}
-                    </td>
+                    <td className="px-4 py-3">{participant.fullName}</td>
                     <td className="px-4 py-3">{participant.nickname ?? '—'}</td>
                     <td className="px-4 py-3 capitalize">{participant.isChild ? 'Criança' : 'Adulto'}</td>
                     <td className="px-4 py-3">
@@ -204,7 +204,7 @@ const GiftLookupPage: React.FC = () => {
         <section className="space-y-4">
           <div className="rounded-2xl border border-white/20 bg-black/25 p-6 text-white/85 space-y-2">
             <h3 className="text-xl font-semibold text-white">
-              Lista de {selectedParticipant.firstName} {selectedParticipant.secondName}
+              Lista de {selectedParticipant.fullName}
               {selectedParticipant.nickname ? ` (${selectedParticipant.nickname})` : ''}
             </h3>
             <p className="text-white/70">

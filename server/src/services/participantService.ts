@@ -4,18 +4,43 @@ import { ParticipantModel, ParticipantDocument } from '../models/Participant';
 import { PendingParticipantModel, PendingParticipantDocument } from '../models/PendingParticipant';
 import { sendVerificationEmail, ParticipantContact } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
+import { ensureNames } from '../utils/nameUtils';
 
 const verificationTTLMinutes = 30;
 
 const registrationSchema = z.object({
-  firstName: z.string().min(2, 'Informe pelo menos duas letras para o primeiro nome.'),
-  secondName: z.string().min(2, 'Informe o segundo nome.'),
+  fullName: z
+    .string()
+    .trim()
+    .min(3, 'Informe o nome completo.')
+    .max(120, 'O nome completo pode ter até 120 caracteres.')
+    .optional(),
+  firstName: z
+    .string()
+    .trim()
+    .min(2, 'Informe pelo menos duas letras para o primeiro nome.')
+    .max(60, 'O primeiro nome pode ter até 60 caracteres.')
+    .optional(),
+  secondName: z
+    .string()
+    .trim()
+    .min(2, 'Informe o segundo nome.')
+    .max(120, 'O segundo nome pode ter até 120 caracteres.')
+    .optional(),
   nickname: z.string().optional(),
   email: z.string().email().optional(),
   isChild: z.boolean().default(false),
   primaryGuardianEmail: z.string().email().optional(),
   guardianEmails: z.array(z.string().email()).optional(),
   attendingInPerson: z.boolean().optional()
+}).superRefine((data, ctx) => {
+  if (!data.fullName && (!data.firstName || !data.secondName)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Informe o nome completo.',
+      path: ['fullName']
+    });
+  }
 });
 
 const verificationSchema = z.object({
@@ -45,6 +70,15 @@ const buildGuardianList = (primary?: string | null, extras: string[] = []): stri
 
 export const registerParticipant = async (input: RegistrationInput): Promise<PendingParticipantDocument> => {
   const data = registrationSchema.parse(input);
+  const { firstName, secondName } = ensureNames({
+    fullName: data.fullName ?? null,
+    firstName: data.firstName ?? null,
+    secondName: data.secondName ?? null
+  });
+
+  if (!firstName || !secondName) {
+    throw new Error('Informe o nome completo.');
+  }
 
   if (data.isChild) {
     if (!data.primaryGuardianEmail) {
@@ -75,8 +109,8 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
     : [];
 
   const participant = new PendingParticipantModel({
-    firstName: data.firstName,
-    secondName: data.secondName,
+    firstName,
+    secondName,
     nickname: data.nickname,
     email: data.email?.toLowerCase(),
     isChild: data.isChild,
@@ -189,6 +223,10 @@ export const resendVerificationCode = async (participantId: string): Promise<voi
 export const getParticipantOrFail = async (participantId: string): Promise<ParticipantDocument> => {
   const participant = await ParticipantModel.findById(participantId);
   if (!participant) {
+    const pending = await PendingParticipantModel.findById(participantId);
+    if (pending) {
+      throw new Error('Esta inscrição ainda não foi confirmada. Valide o código enviado por e-mail.');
+    }
     throw new Error('Participante não encontrado.');
   }
   return participant;
