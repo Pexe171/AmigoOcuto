@@ -1,7 +1,9 @@
 import { FormEvent, useState } from 'react';
+import FestiveCard from '../components/FestiveCard';
 import { api, extractErrorMessage } from '../services/api';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
+import { inputClass, labelClass, primaryButtonClass, secondaryButtonClass, badgeClass } from '../styles/theme';
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
@@ -116,56 +118,72 @@ const GiftLookupPage: React.FC = () => {
   };
 
   return (
-    <div className="container" style={{ padding: '48px 0' }}>
-      <div className="shadow-card" style={{ maxWidth: '860px', margin: '0 auto' }}>
-        <h2 style={{ marginTop: 0 }}>Consulte a lista de presentes</h2>
-        <p style={{ color: '#475569' }}>
-          Pesquise pelo nome completo do participante que você sorteou ou cole diretamente o ID informado no e-mail do sorteio.
-        </p>
+    <FestiveCard
+      title="Consulte a lista de presentes"
+      eyebrow="🔍 Portal do sorteio"
+      description={
+        <>
+          <p>
+            Pesquise pelo nome completo do participante que você sorteou ou cole diretamente o ID informado no e-mail do sorteio
+            para abrir a lista de presentes.
+          </p>
+          <p className="text-sm text-white/70">
+            Usamos o mesmo ID enviado junto com o ticket. Guarde-o para consultas futuras.
+          </p>
+        </>
+      }
+      maxWidth="max-w-5xl"
+    >
+      {notification && <Notification type={notification.type} message={notification.message} onClose={clear} />}
 
-        {notification && <Notification type={notification.type} message={notification.message} onClose={clear} />}
+      <form onSubmit={handleSearch} className="space-y-6">
+        <div className="space-y-2">
+          <label htmlFor="lookupQuery" className={labelClass}>
+            Nome ou ID do participante
+          </label>
+          <input
+            id="lookupQuery"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className={inputClass}
+            placeholder="Ex.: Ana Beatriz ou 65f3b2c1..."
+          />
+        </div>
+        <div className="flex justify-end">
+          <button type="submit" className={primaryButtonClass} disabled={isSearching}>
+            {isSearching ? 'Pesquisando...' : 'Buscar'}
+          </button>
+        </div>
+      </form>
 
-        <form onSubmit={handleSearch} className="form-grid" style={{ marginTop: '24px', gap: '16px' }}>
-          <div>
-            <label htmlFor="lookupQuery">Nome ou ID do participante</label>
-            <input
-              id="lookupQuery"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Ex.: Ana Beatriz ou 65f3b2c1..."
-            />
+      {results.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">Participantes encontrados</h3>
+            <span className={badgeClass}>{results.length} resultado(s)</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="submit" className="primary-button" disabled={isSearching}>
-              {isSearching ? 'Pesquisando...' : 'Buscar'}
-            </button>
-          </div>
-        </form>
-
-        {results.length > 0 && (
-          <section style={{ marginTop: '24px' }}>
-            <h3>Participantes encontrados</h3>
-            <table className="table">
-              <thead>
+          <div className="overflow-x-auto rounded-2xl border border-white/15 bg-black/20">
+            <table className="min-w-full divide-y divide-white/15 text-left text-sm text-white/90">
+              <thead className="uppercase text-xs tracking-[0.25em] text-white/60">
                 <tr>
-                  <th>Nome</th>
-                  <th>Apelido</th>
-                  <th>Tipo</th>
-                  <th>Ações</th>
+                  <th className="px-4 py-3">Nome</th>
+                  <th className="px-4 py-3">Apelido</th>
+                  <th className="px-4 py-3">Tipo</th>
+                  <th className="px-4 py-3">Ações</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/10">
                 {results.map((participant) => (
                   <tr key={participant.id}>
-                    <td>
+                    <td className="px-4 py-3">
                       {participant.firstName} {participant.secondName}
                     </td>
-                    <td>{participant.nickname ?? '—'}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{participant.isChild ? 'Criança' : 'Adulto'}</td>
-                    <td>
+                    <td className="px-4 py-3">{participant.nickname ?? '—'}</td>
+                    <td className="px-4 py-3 capitalize">{participant.isChild ? 'Criança' : 'Adulto'}</td>
+                    <td className="px-4 py-3">
                       <button
                         type="button"
-                        className="secondary-button"
+                        className={secondaryButtonClass}
                         onClick={() => void fetchParticipantData(participant.id)}
                         disabled={loadingParticipant}
                       >
@@ -176,46 +194,58 @@ const GiftLookupPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {loadingParticipant && <p>Carregando lista selecionada...</p>}
+      {loadingParticipant && <p className="text-white/80">Carregando lista selecionada...</p>}
 
-        {selectedParticipant && !loadingParticipant && (
-          <section style={{ marginTop: '24px' }}>
-            <h3 style={{ marginTop: 0 }}>
+      {selectedParticipant && !loadingParticipant && (
+        <section className="space-y-4">
+          <div className="rounded-2xl border border-white/20 bg-black/25 p-6 text-white/85 space-y-2">
+            <h3 className="text-xl font-semibold text-white">
               Lista de {selectedParticipant.firstName} {selectedParticipant.secondName}
               {selectedParticipant.nickname ? ` (${selectedParticipant.nickname})` : ''}
             </h3>
-            <p style={{ color: '#475569' }}>
+            <p className="text-white/70">
               Participação: {selectedParticipant.isChild ? 'Criança' : 'Adulto'} · Presença:{' '}
               {selectedParticipant.attendingInPerson ? 'Confirmada no encontro presencial' : 'Remota ou indefinida'}
             </p>
+            <p className="text-sm text-white/60">
+              Lembre-se: o ID enviado no e-mail do sorteio dá acesso direto a esta lista sempre que precisar.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/20 bg-black/15 p-6">
             {gifts.length === 0 ? (
-              <p>Este participante ainda não cadastrou preferências de presente.</p>
+              <p className="text-white/80">Este participante ainda não cadastrou preferências de presente.</p>
             ) : (
-              <ul>
+              <ul className="space-y-3 text-white/90">
                 {gifts.map((gift, index) => (
-                  <li key={`${gift.name}-${index}`} style={{ marginBottom: '12px' }}>
-                    <strong>{gift.name}</strong>
-                    {gift.priority ? ` · prioridade ${gift.priority}` : ''}
-                    {gift.description ? ` — ${gift.description}` : ''}
-                    {gift.url ? (
-                      <>
-                        {' '}
-                        <a href={gift.url} target="_blank" rel="noreferrer">
-                          Link de referência
-                        </a>
-                      </>
-                    ) : null}
+                  <li key={`${gift.name}-${index}`} className="rounded-2xl bg-black/20 px-4 py-3">
+                    <p className="font-semibold text-white">
+                      {gift.name}
+                      {gift.priority ? ` · prioridade ${gift.priority}` : ''}
+                    </p>
+                    {gift.description && <p className="text-sm text-white/70">{gift.description}</p>}
+                    {gift.url && (
+                      <a
+                        href={gift.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-emerald-200 underline underline-offset-4"
+                      >
+                        Link de referência
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
-          </section>
-        )}
-      </div>
-    </div>
+          </div>
+        </section>
+      )}
+    </FestiveCard>
   );
 };
 

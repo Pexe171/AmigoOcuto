@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { ParticipantModel } from '../models/Participant';
 import { GiftListModel, GiftItem } from '../models/GiftList';
+import { collectParticipantRecipients, sendTestEmailToParticipant } from './emailService';
 
 interface ParticipantData {
   _id: Types.ObjectId;
@@ -124,4 +125,22 @@ export const getParticipantDetailsForAdmin = async (participantId: string): Prom
   }
 
   return details;
+};
+
+export const sendTestEmailsToAllParticipants = async (): Promise<{ participants: number; recipients: number }> => {
+  const participants = await ParticipantModel.find({ emailVerified: true }).exec();
+  let participantsNotified = 0;
+  let totalRecipients = 0;
+
+  for (const participant of participants) {
+    const recipients = collectParticipantRecipients(participant);
+    if (recipients.length === 0) {
+      continue;
+    }
+    participantsNotified += 1;
+    totalRecipients += recipients.length;
+    await sendTestEmailToParticipant(participant, recipients);
+  }
+
+  return { participants: participantsNotified, recipients: totalRecipients };
 };

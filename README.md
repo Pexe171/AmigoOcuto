@@ -102,11 +102,13 @@ npm --prefix web run build
    - Consulte a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
    - Acompanhe os eventos existentes e, quando todos os participantes estiverem verificados em número par, execute o sorteio com um único clique.
    - Verifique o histórico de sorteios de cada evento. Todas as ações são de consulta, exceto o disparo do sorteio.
+   - Dispare um e-mail de teste para todos os contatos confirmados antes do sorteio oficial e valide rapidamente as credenciais SMTP.
    - Opcionalmente, utilize `/adm` para exibir o protótipo visual do portal corporativo ADM.
 
 5. **Consulta do sorteio**
    - Em `/consultar`, busque pelo nome do participante sorteado ou cole o ID recebido no e-mail para visualizar a lista de presentes correspondente.
    - O acesso é público e não revela quem tirou quem, apenas expõe as preferências do participante consultado.
+   - Os e-mails pós-sorteio agora incluem o ticket e o ID do amigo oculto para facilitar consultas futuras.
 
 ## Testes e lint
 
