@@ -93,7 +93,8 @@ npm --prefix web run build
    - Um código de verificação é enviado ao e-mail principal (do participante adulto ou do responsável).
 
 2. **Confirmação de e-mail**
-   - Em `/confirmacao`, informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail para concluir a validação.
+   - Após finalizar a inscrição, você será redirecionado automaticamente para `/confirmacao`.
+   - Informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail para concluir a validação.
    - Somente após essa confirmação os dados são persistidos na coleção principal; inscrições pendentes podem refazer o processo sem bloquear o e-mail.
 
 3. **Lista de presentes**

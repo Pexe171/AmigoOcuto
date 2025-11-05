@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useLocation, useNavigate } from 'react-router-dom';
 import FestiveCard from '../components/FestiveCard';
 import { api, extractErrorMessage } from '../services/api';
 import Notification from '../components/Notification';
@@ -23,6 +24,8 @@ const VerificationPage: React.FC = () => {
   const { participant } = useParticipant();
   const { notification, show, clear } = useNotification();
   const [loading, setLoading] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const {
     register,
@@ -51,6 +54,14 @@ const VerificationPage: React.FC = () => {
       setLoading(false);
     }
   });
+
+  useEffect(() => {
+    const state = location.state as { message?: string; type?: 'success' | 'error' | 'info' } | null;
+    if (state?.message) {
+      show(state.type ?? 'info', state.message);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.state, navigate, show]);
 
   const eyebrow = participant.contactEmail
     ? `Código enviado para ${participant.contactEmail}`
