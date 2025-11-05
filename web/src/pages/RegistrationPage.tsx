@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 import FestiveCard from '../components/FestiveCard';
 import { api, extractErrorMessage } from '../services/api';
 import { useNotification } from '../hooks/useNotification';
@@ -67,6 +68,7 @@ const RegistrationPage: React.FC = () => {
   );
   const { notification, show, clear } = useNotification();
   const { setParticipant } = useParticipant();
+  const navigate = useNavigate();
 
   const {
     register,
@@ -119,7 +121,6 @@ const RegistrationPage: React.FC = () => {
       const successMessage = contactEmail
         ? `${message} Código enviado para ${contactEmail}. Anote o ID: ${id}.`
         : `${message} Anote o ID: ${id}.`;
-      show('success', successMessage);
       reset({
         isChild: data.isChild,
         guardians: [],
@@ -127,6 +128,12 @@ const RegistrationPage: React.FC = () => {
         nickname: '',
         email: '',
         primaryGuardianEmail: ''
+      });
+      navigate('/confirmacao', {
+        state: {
+          type: 'success' as const,
+          message: successMessage
+        }
       });
     } catch (error) {
       show('error', extractErrorMessage(error));
