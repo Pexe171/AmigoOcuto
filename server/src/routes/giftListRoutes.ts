@@ -3,6 +3,8 @@ import { Router } from 'express';
 import {
   updateGiftList,
   fetchGiftList,
+  updateGiftListByEmail,
+  fetchGiftListByEmail,
 } from '../controllers/giftListController';
 
 // { mergeParams: true } é importante para que esta rota
@@ -16,3 +18,12 @@ router.put('/', updateGiftList);
 router.get('/', fetchGiftList);
 
 export default router;
+
+// Rotas para buscar por email
+export const giftListByEmailRouter = Router();
+
+// PUT /api/participants/by-email/:email/gifts
+giftListByEmailRouter.put('/:email/gifts', updateGiftListByEmail);
+
+// GET /api/participants/by-email/:email/gifts
+giftListByEmailRouter.get('/:email/gifts', fetchGiftListByEmail);

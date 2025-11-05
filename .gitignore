@@ -6,3 +6,5 @@ server/dist
 web/dist
 web/node_modules
 npm-debug.log*
+.cursor
+cursor

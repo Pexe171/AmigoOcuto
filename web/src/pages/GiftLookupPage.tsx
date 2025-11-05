@@ -78,7 +78,13 @@ const GiftLookupPage: React.FC = () => {
         show('success', `Lista carregada para ${status.fullName}.`);
       }
     } catch (error) {
-      show('error', extractErrorMessage(error));
+      const errorMessage = extractErrorMessage(error);
+      // Melhorar mensagem quando o participante não for encontrado
+      if (errorMessage.includes('não encontrado') || errorMessage.includes('not found')) {
+        show('error', 'Participante não encontrado. Verifique se o ID está correto e se a inscrição foi confirmada. Se você está usando MongoDB em memória, os dados são perdidos quando o servidor reinicia. Crie uma nova inscrição se necessário.');
+      } else {
+        show('error', errorMessage);
+      }
       resetSelection();
     } finally {
       setLoadingParticipant(false);

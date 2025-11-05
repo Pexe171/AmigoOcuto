@@ -5,6 +5,7 @@ export interface GiftItem {
   description?: string;
   url?: string;
   priority?: 'alta' | 'media' | 'baixa';
+  price?: number;
 }
 
 export interface GiftListDocument extends Document {
@@ -18,7 +19,8 @@ const GiftItemSchema = new Schema<GiftItem>(
     name: { type: String, required: true },
     description: { type: String },
     url: { type: String },
-    priority: { type: String, enum: ['alta', 'media', 'baixa'], default: 'media' }
+    priority: { type: String, enum: ['alta', 'media', 'baixa'], default: 'media' },
+    price: { type: Number, min: 0, max: 50 }
   },
   { _id: false }
 );

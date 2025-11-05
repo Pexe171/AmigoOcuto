@@ -98,49 +98,63 @@ const RegistrationPage: React.FC = () => {
     return first ?? '';
   }, [fullNameValue]);
 
-  const onSubmit = handleSubmit(async (data) => {
-    setLoading(true);
-    clear();
-    try {
-      const payload = {
-        fullName: data.fullName,
-        nickname: data.nickname,
-        email: data.isChild ? data.email || undefined : data.email,
-        isChild: data.isChild,
-        primaryGuardianEmail: data.isChild ? data.primaryGuardianEmail : undefined,
-        guardianEmails: data.isChild
-          ? [data.primaryGuardianEmail!, ...data.guardians.map(({ email }: { email: string }) => email)].filter(Boolean)
-          : undefined
-      };
+  const onSubmit = handleSubmit(
+    async (data) => {
+      console.log('Formulário submetido com dados:', data);
+      setLoading(true);
+      clear();
+      try {
+        const payload = {
+          fullName: data.fullName,
+          nickname: data.nickname,
+          email: data.isChild ? data.email || undefined : data.email,
+          isChild: data.isChild,
+          primaryGuardianEmail: data.isChild ? data.primaryGuardianEmail : undefined,
+          guardianEmails: data.isChild
+            ? [data.primaryGuardianEmail!, ...data.guardians.map(({ email }: { email: string }) => email)].filter(Boolean)
+            : undefined
+        };
 
-      const response = await api.post('/participants', payload);
-      const { id, message } = response.data as { id: string; message: string };
-      const contactEmail = data.isChild ? data.primaryGuardianEmail ?? null : data.email ?? null;
-      setParticipant({ id, firstName: firstNameFromForm || data.fullName, isChild: data.isChild, contactEmail });
-      setRecentRegistration({ id, fullName: data.fullName, contactEmail });
-      const successMessage = contactEmail
-        ? `${message} Código enviado para ${contactEmail}. Anote o ID: ${id}.`
-        : `${message} Anote o ID: ${id}.`;
-      reset({
-        isChild: data.isChild,
-        guardians: [],
-        fullName: '',
-        nickname: '',
-        email: '',
-        primaryGuardianEmail: ''
-      });
-      navigate('/confirmacao', {
-        state: {
-          type: 'success' as const,
-          message: successMessage
-        }
-      });
-    } catch (error) {
-      show('error', extractErrorMessage(error));
-    } finally {
-      setLoading(false);
+        const response = await api.post('/participants', payload);
+        const { id, message } = response.data as { id: string; message: string };
+        const contactEmail = data.isChild ? data.primaryGuardianEmail ?? null : data.email ?? null;
+        setParticipant({ id, firstName: firstNameFromForm || data.fullName, isChild: data.isChild, contactEmail });
+        setRecentRegistration({ id, fullName: data.fullName, contactEmail });
+        reset({
+          isChild: data.isChild,
+          guardians: [],
+          fullName: '',
+          nickname: '',
+          email: '',
+          primaryGuardianEmail: ''
+        });
+        // Redirecionar automaticamente para a página de verificação do código
+        const successMessage = contactEmail
+          ? `${message} Código enviado para ${contactEmail}. Anote o ID: ${id}.`
+          : `${message} Anote o ID: ${id}.`;
+        navigate('/confirmacao', {
+          state: {
+            type: 'success' as const,
+            message: successMessage
+          }
+        });
+      } catch (error) {
+        show('error', extractErrorMessage(error));
+      } finally {
+        setLoading(false);
+      }
+    },
+    (errors) => {
+      // Callback de erro de validação
+      console.error('Erros de validação:', errors);
+      const firstError = Object.values(errors)[0];
+      if (firstError?.message) {
+        show('error', firstError.message);
+      } else {
+        show('error', 'Por favor, preencha todos os campos obrigatórios corretamente.');
+      }
     }
-  });
+  );
 
   return (
     <FestiveCard
@@ -287,7 +301,15 @@ const RegistrationPage: React.FC = () => {
         )}
 
         <div className="flex justify-end">
-          <button type="submit" className={primaryButtonClass} disabled={loading}>
+          <button 
+            type="submit" 
+            className={primaryButtonClass} 
+            disabled={loading}
+            onClick={(e) => {
+              console.log('Botão clicado, loading:', loading);
+              // Não prevenir o default - deixar o handleSubmit fazer o trabalho
+            }}
+          >
             {loading ? 'Enviando...' : 'Enviar inscrição'}
           </button>
         </div>
