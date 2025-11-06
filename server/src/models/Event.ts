@@ -1,5 +1,10 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
+/**
+ * Modelo que representa cada "edição" do Amigo Ocuto. Guardamos o nome do evento,
+ * os participantes envolvidos e um histórico de sorteios executados ao longo do tempo.
+ */
+
 export type EventStatus = 'rascunho' | 'ativo' | 'sorteado' | 'cancelado';
 
 export interface DrawHistoryEntry {

@@ -3,6 +3,11 @@ import { mailer } from '../config/mailer';
 import { ParticipantDocument } from '../models/Participant';
 import { GiftItem } from '../models/GiftList';
 
+/**
+ * Funções utilitárias para montar e enviar e-mails transacionais. Mantemos o
+ * HTML simples e destacamos o contexto de cada disparo.
+ */
+
 export type ParticipantContact = {
   firstName: string;
   isChild: boolean;

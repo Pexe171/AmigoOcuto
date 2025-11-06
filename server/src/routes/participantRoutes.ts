@@ -10,6 +10,8 @@ import {
   updateEmail,
 } from '../controllers/participantController';
 
+// Tudo o que é público passa por aqui. Mantemos a ordem das rotas para facilitar leitura.
+
 const router = Router();
 
 // POST /api/participants -> chama a função createParticipant

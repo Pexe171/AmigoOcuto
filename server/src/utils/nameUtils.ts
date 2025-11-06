@@ -1,3 +1,7 @@
+/**
+ * Utilitário para lidar com nomes completos. Ajuda a manter consistência entre
+ * os formulários do frontend e os dados persistidos.
+ */
 export type ParsedName = {
   firstName: string;
   secondName: string;

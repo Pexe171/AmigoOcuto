@@ -3,6 +3,11 @@ import { Types } from 'mongoose';
 import { GiftListModel, GiftListDocument, GiftItem } from '../models/GiftList';
 import { getParticipantOrFail, getParticipantByEmailOrFail } from './participantService';
 
+/**
+ * Serviço dedicado às listas de presentes. Responsável por validar entradas e
+ * garantir que só participantes confirmados possam criar ou editar listas.
+ */
+
 const giftSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),

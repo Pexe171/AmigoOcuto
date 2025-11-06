@@ -4,6 +4,11 @@ import { GiftListModel, GiftItem } from '../models/GiftList';
 import { collectParticipantRecipients, sendTestEmailToParticipant } from './emailService';
 import { ensureNames } from '../utils/nameUtils';
 
+/**
+ * Camada de serviços pensada para o painel administrativo. Aqui combinamos dados
+ * de várias coleções e preparamos relatórios amigáveis para o dashboard.
+ */
+
 interface ParticipantData {
   _id: Types.ObjectId;
   firstName: string;
@@ -57,6 +62,7 @@ export type AdminParticipantDetails = {
 };
 
 export const listParticipantsWithGiftSummary = async (): Promise<AdminParticipantSummary[]> => {
+  // Buscamos os participantes confirmados e ordenamos pelo momento de inscrição.
   const participants = await ParticipantModel.find().sort({ createdAt: 1 }).lean<ParticipantData[]>();
   const participantIds = participants.map((participant) => participant._id);
   const giftLists = await GiftListModel.find({ participant: { $in: participantIds } }).lean<GiftListData[]>();
@@ -106,6 +112,7 @@ export const getParticipantDetailsForAdmin = async (participantId: string): Prom
     throw new Error('Participante não encontrado.');
   }
 
+  // Carregamos também a lista de presentes, se existir.
   const giftList = await GiftListModel.findOne({ participant: participant._id }).lean<GiftListData | null>();
 
   const names = ensureNames({
@@ -154,6 +161,7 @@ export const sendTestEmailsToAllParticipants = async (): Promise<{ participants:
     }
     participantsNotified += 1;
     totalRecipients += recipients.length;
+    // Este envio usa o modo configurado (console ou SMTP real).
     await sendTestEmailToParticipant(participant, recipients);
   }
 

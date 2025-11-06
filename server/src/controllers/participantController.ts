@@ -12,6 +12,12 @@ import {
 } from '../services/participantService';
 import { ensureNames } from '../utils/nameUtils';
 
+/**
+ * Controlador responsável pelo fluxo público (inscrição, confirmação e listas).
+ * Cada função envia mensagens pensadas para alguém que está a seguir um tutorial
+ * ou a depurar a aplicação pela primeira vez.
+ */
+
 // Esta função é chamada quando fazes POST /api/participants
 export const createParticipant = async (
   req: Request,
@@ -60,6 +66,7 @@ export const resendVerification = async (
     return;
   }
   try {
+    // O serviço cuida de gerar um novo código e reenviar o e-mail automaticamente.
     await resendVerificationCode(id);
     res.json({
       message: 'Um novo código foi enviado para o e-mail principal cadastrado.',
@@ -84,6 +91,7 @@ export const getParticipantStatus = async (
     return;
   }
   try {
+    // Recupera o documento (confirmado ou informa erro amigável se ainda estiver pendente).
     const participant = await getParticipantOrFail(id);
     const contactEmail = participant.isChild
       ? participant.primaryGuardianEmail ?? participant.guardianEmails[0] ?? null
@@ -121,6 +129,7 @@ export const searchParticipantsByName = async (req: Request, res: Response): Pro
   }
 
   try {
+    // Pesquisa com regex controlada para evitar injection e limitar resultados.
     const results = await searchParticipants(q);
     res.json({
       results: results.map((participant) => {
@@ -194,6 +203,7 @@ export const updateEmail = async (
   res: Response,
 ): Promise<void> => {
   try {
+    // Após validar conflito de e-mails, o serviço dispara um novo código automaticamente.
     await updateParticipantEmail(req.body);
     res.json({
       message: 'E-mail atualizado com sucesso. Um novo código de verificação foi enviado para o novo endereço.',

@@ -1,5 +1,10 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
+/**
+ * Cada participante pode manter uma lista personalizada de presentes. Os itens
+ * guardam nome, descrição opcional, link e prioridade.
+ */
+
 export interface GiftItem {
   name: string;
   description?: string;

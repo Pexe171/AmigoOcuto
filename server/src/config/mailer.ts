@@ -2,6 +2,11 @@
 import nodemailer from 'nodemailer';
 import { env } from './environment';
 
+/**
+ * O "carteiro" da aplicação. Dependendo do `.env`, ele pode apenas simular envios
+ * no console (perfeito para desenvolvimento) ou usar SMTP real para entregar e-mails.
+ */
+
 export type MailPayload = {
   to: string | string[];
   subject: string;
@@ -23,6 +28,7 @@ class SmtpMailer implements Mailer {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    // O nodemailer cria a ligação ao servidor SMTP com base nas variáveis de ambiente.
     this.transporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,

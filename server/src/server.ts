@@ -3,12 +3,20 @@ import app from './app';
 import { env } from './config/environment';
 import { connectDatabase } from './config/database';
 
+/**
+ * Este ficheiro é o maestro: garante que o banco está ligado, sobe o servidor HTTP
+ * e regista mensagens amigáveis caso algo corra mal. Ideal para quem precisa entender
+ * rapidamente como inicializamos a API.
+ */
+
 const start = async (): Promise<void> => {
   try {
+    // Primeiro asseguramos a ligação com o MongoDB (real ou em memória).
     await connectDatabase();
     const server = http.createServer(app);
-    
+
     server.on('error', (error: NodeJS.ErrnoException) => {
+      // Quando a porta está ocupada, deixamos instruções claras para resolver.
       if (error.code === 'EADDRINUSE') {
         console.error(`\n❌ Erro: A porta ${env.PORT} já está em uso.`);
         console.error('💡 Soluções:');
@@ -26,6 +34,7 @@ const start = async (): Promise<void> => {
       console.log(`✅ Servidor iniciado na porta ${env.PORT}`);
     });
   } catch (error) {
+    // Qualquer falha crítica é registada e interrompemos o processo para evitar estados estranhos.
     console.error('Falha ao iniciar o servidor', error);
     process.exit(1);
   }
