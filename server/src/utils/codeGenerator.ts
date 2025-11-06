@@ -1,3 +1,7 @@
+/**
+ * Geradores simples para códigos utilizados na aplicação. São bons pontos de partida
+ * caso queiras ligar um serviço externo (ex.: shortid ou nanoid).
+ */
 export const generateVerificationCode = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };

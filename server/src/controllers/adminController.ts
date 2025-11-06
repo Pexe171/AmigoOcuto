@@ -9,6 +9,12 @@ import {
   sendTestEmailsToAllParticipants
 } from '../services/adminService';
 
+/**
+ * Controlador do painel administrativo. Cada função aqui corresponde diretamente
+ * a uma rota definida em `adminRoutes.ts`. A ideia é manter respostas amigáveis e
+ * mensagens claras para quem opera o painel.
+ */
+
 type AdminTokenPayload = { email: string };
 
 const loginSchema = z
@@ -74,6 +80,7 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
 };
 
 export const listParticipants = async (_req: Request, res: Response): Promise<void> => {
+  // Listagem resumida para o dashboard: carrega contagem de presentes e status.
   const participants = await listParticipantsWithGiftSummary();
   res.json(participants);
 };
@@ -85,6 +92,7 @@ export const getParticipantDetails = async (req: Request, res: Response): Promis
     return;
   }
   try {
+    // Aqui mostramos informações completas, incluindo lista de presentes.
     const details = await getParticipantDetailsForAdmin(participantId);
     res.json(details);
   } catch (error) {
@@ -136,6 +144,7 @@ export const runDraw = async (req: Request, res: Response): Promise<void> => {
     return;
   }
   try {
+    // O serviço devolve o evento actualizado e a quantidade de tickets enviados.
     const result = await drawEvent({ eventId });
     res.json({
       message: 'Sorteio executado com sucesso. Os participantes receberam seus tickets por e-mail.',
@@ -163,6 +172,7 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
 
 export const triggerTestEmails = async (_req: Request, res: Response): Promise<void> => {
   try {
+    // Ideal para homologação: dispara e-mails fictícios e informa quantos destinatários foram atingidos.
     const result = await sendTestEmailsToAllParticipants();
     res.json({
       message: 'Disparo de teste executado com sucesso.',

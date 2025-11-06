@@ -1,5 +1,10 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
+/**
+ * Ticket emitido após o sorteio. Ele liga um participante ao amigo oculto que deverá
+ * presentear e gera um código único usado no e-mail.
+ */
+
 export interface TicketDocument extends Document {
   event: Types.ObjectId;
   participant: Types.ObjectId;

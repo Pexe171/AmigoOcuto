@@ -19,6 +19,7 @@ export const updateGiftList = async (
   }
   try {
     // 1. Tenta criar ou atualizar a lista de presentes
+    // O serviço trata de validar os itens com Zod e guardar a lista.
     const list = await upsertGiftList(participantId, req.body);
     res.json({
       message: 'Lista de presentes atualizada com sucesso.',

@@ -18,6 +18,90 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 └── web      # Interface web em React + Vite
 ```
 
+## Como o backend funciona (tour guiado)
+
+Para quem gosta de entender o que acontece por trás dos botões, segue uma caminhada
+pelos ficheiros mais importantes do diretório `server`:
+
+- **`src/server.ts`** é o maestro. Ele liga o MongoDB (em memória ou real, dependendo
+  das variáveis de ambiente) e inicia o servidor HTTP. Se a porta estiver ocupada,
+  ele já sugere como resolver.
+- **`src/app.ts`** funciona como a receção do prédio: configura o Express, regista
+  middlewares (`cors`, `express.json`, `morgan`) e encaminha as rotas para os
+  controladores corretos.
+- **Camada `config/`** agrupa tudo o que é configuração:
+  - `environment.ts` valida o `.env` com Zod e cria um objeto `env` seguro.
+  - `database.ts` liga no MongoDB e possui um plano B usando
+    [mongodb-memory-server](https://github.com/nodkz/mongodb-memory-server) para quem
+    está a desenvolver sem banco instalado.
+  - `mailer.ts` escolhe entre o “carteiro” de teste (console) e o real (SMTP).
+- **Modelos (`models/`)** descrevem as coleções do MongoDB: participantes, listas de
+  presentes, eventos, tickets e inscrições pendentes. Cada schema contém pequenos
+  comentários explicando o que é guardado.
+- **Serviços (`services/`)** concentram as regras de negócio. Exemplos rápidos:
+  - `participantService.ts` valida inscrições, gera códigos, confirma e-mails e faz
+    buscas por nome ou e-mail.
+  - `giftListService.ts` garante que só participantes confirmados consigam criar ou
+    editar listas de presentes.
+  - `eventService.ts` cuida do sorteio garantindo número par de participantes e que
+    ninguém tire a si próprio.
+  - `emailService.ts` monta HTML amigável para os e-mails de confirmação, sorteio e
+    testes.
+- **Controladores (`controllers/`)** respondem às requisições HTTP chamando os serviços
+  adequados e devolvendo mensagens humanizadas.
+- **Rotas (`routes/`)** são bem diretas: definem os caminhos e apontam para as funções
+  do controlador correspondente.
+- **`middlewares/adminAuth.ts`** verifica o token JWT do painel administrativo e bloqueia
+  acessos não autorizados.
+- **`utils/`** abriga helpers pequenos, como o gerador de códigos (`codeGenerator.ts`)
+  e funções para normalizar nomes (`nameUtils.ts`).
+
+### Exemplos práticos
+
+Para experimentar rapidamente a API depois de `npm run dev:server`, podes usar `curl`
+ou [Insomnia](https://insomnia.rest/). Alguns exemplos:
+
+1. **Criar uma inscrição:**
+
+   ```bash
+   curl -X POST http://localhost:4000/api/participants \
+     -H "Content-Type: application/json" \
+     -d '{
+       "fullName": "Joana Silva",
+       "email": "joana@example.com",
+       "attendingInPerson": true
+     }'
+   ```
+
+   A resposta trará o `id` da inscrição e uma mensagem lembrando de confirmar o e-mail.
+
+2. **Confirmar o e-mail (troque pelo código recebido):**
+
+   ```bash
+   curl -X POST http://localhost:4000/api/participants/verify \
+     -H "Content-Type: application/json" \
+     -d '{
+       "participantId": "ID_RECEBIDO",
+       "code": "123456"
+     }'
+   ```
+
+3. **Atualizar lista de presentes:**
+
+   ```bash
+   curl -X PUT http://localhost:4000/api/participants/ID_RECEBIDO/gifts \
+     -H "Content-Type: application/json" \
+     -d '{
+       "items": [
+        { "name": "Livro de fantasia", "priority": "alta" },
+        { "name": "Chocolate artesanal", "priority": "media" }
+       ]
+     }'
+   ```
+
+Esses exemplos já percorrem quase todo o fluxo dos serviços e deixam o código do lado
+do servidor pronto para ser explorado.
+
 ## Pré-requisitos
 
 - Node.js 18+

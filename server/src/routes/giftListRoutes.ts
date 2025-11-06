@@ -11,6 +11,7 @@ import {
 // consiga aceder ao :participantId vindo do ficheiro server/src/app.ts
 const router = Router({ mergeParams: true });
 
+// Rotas centradas no ID do participante.
 // PUT /api/participants/:participantId/gifts
 router.put('/', updateGiftList);
 
@@ -22,6 +23,7 @@ export default router;
 // Rotas para buscar por email
 export const giftListByEmailRouter = Router();
 
+// Aqui não precisamos de mergeParams porque o e-mail vem direto na URL.
 // PUT /api/participants/by-email/:email/gifts
 giftListByEmailRouter.put('/:email/gifts', updateGiftListByEmail);
 

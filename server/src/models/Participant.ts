@@ -1,5 +1,10 @@
 import { Schema, model, Document } from 'mongoose';
 
+/**
+ * Documento principal dos participantes confirmados. Mantém dados de contacto,
+ * estado de verificação e indicadores de presença.
+ */
+
 export type ParticipantRole = 'adult' | 'child';
 
 export interface VerificationInfo {

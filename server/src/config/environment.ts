@@ -2,6 +2,12 @@
 import dotenv from 'dotenv';
 import { z, ZodIssueCode } from 'zod';
 
+/**
+ * A ideia aqui é centralizar toda a configuração do backend e validar o `.env`.
+ * Pense neste módulo como um "check-up" inicial: carregamos as variáveis,
+ * verificamos se estão saudáveis e exportamos um objeto `env` seguro de usar.
+ */
+
 dotenv.config();
 
 const envSchema = z
@@ -77,6 +83,7 @@ const envSchema = z
 
 type Env = z.infer<typeof envSchema>;
 
+// Fazemos o parse seguro: se algo estiver errado, preferimos falhar agora do que durante uma requisição.
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {

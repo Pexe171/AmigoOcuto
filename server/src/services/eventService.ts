@@ -8,6 +8,11 @@ import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftItems } from './giftListService';
 
+/**
+ * Regras de negócio dos eventos e sorteios. Esta camada garante que só sorteamos
+ * participantes verificados, que ninguém tira a si próprio e que os e-mails são enviados.
+ */
+
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/);
 
 const eventSchema = z.object({

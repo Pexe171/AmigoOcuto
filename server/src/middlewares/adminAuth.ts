@@ -2,6 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { env } from '../config/environment';
 import jwt from 'jsonwebtoken';
 
+/**
+ * Middleware simples para proteger as rotas administrativas.
+ * Ele lê o token JWT enviado no header Authorization e valida com o segredo do `.env`.
+ */
+
 export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
   const authorization = req.header('authorization');
   if (!authorization || !authorization.startsWith('Bearer ')) {

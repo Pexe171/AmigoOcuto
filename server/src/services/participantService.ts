@@ -6,6 +6,11 @@ import { sendVerificationEmail, ParticipantContact } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
 import { ensureNames } from '../utils/nameUtils';
 
+/**
+ * Serviço que conduz toda a jornada do participante: inscrição, verificação,
+ * atualização de e-mail e pesquisas. A maior parte das validações vive aqui.
+ */
+
 const verificationTTLMinutes = 30;
 
 const registrationSchema = z.object({

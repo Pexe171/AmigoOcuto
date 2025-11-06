@@ -12,6 +12,8 @@ import {
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
+// As rotas administrativas começam com /login (público) e depois exigem token válido.
+
 const router = Router();
 
 router.post('/login', authenticateAdmin);

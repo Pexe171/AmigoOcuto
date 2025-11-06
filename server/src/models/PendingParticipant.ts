@@ -1,6 +1,11 @@
 import { Schema, model, Document } from 'mongoose';
 import { VerificationInfo } from './Participant';
 
+/**
+ * Guardamos inscrições pendentes aqui até que o e-mail seja confirmado.
+ * Evita sujar a coleção principal com dados incompletos.
+ */
+
 export interface PendingParticipantDocument extends Document {
   firstName: string;
   secondName: string;

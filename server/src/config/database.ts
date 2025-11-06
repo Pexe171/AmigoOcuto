@@ -3,6 +3,11 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoServerError } from 'mongodb';
 import { env } from './environment';
 
+/**
+ * Camada de ligação ao MongoDB. O objetivo é deixar claro quando usamos um banco
+ * real ou a instância em memória, e explicar as mensagens de erro mais comuns.
+ */
+
 let memoryServer: MongoMemoryServer | null = null;
 
 const connectWithUri = async (
@@ -20,6 +25,7 @@ const ensureInMemoryServer = async (): Promise<string> => {
   return memoryServer.getUri();
 };
 
+// Alguns servidores Mongo devolvem códigos específicos quando falta permissão.
 const isUnauthorized = (error: unknown): error is MongoServerError =>
   error instanceof MongoServerError && (error.code === 13 || error.code === 8000);
 
@@ -48,6 +54,7 @@ const connectInMemory = async (): Promise<typeof mongoose> => {
 export const connectDatabase = async (): Promise<typeof mongoose> => {
   mongoose.set('strictQuery', false);
 
+  // Quando o .env força o modo em memória, honramos a escolha de imediato.
   if (env.MONGO_IN_MEMORY) {
     return connectInMemory();
   }
