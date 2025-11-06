@@ -2,70 +2,37 @@
 import { mailer } from '../config/mailer';
 import { ParticipantDocument } from '../models/Participant';
 import { GiftItem } from '../models/GiftList';
+import { HttpError } from '../utils/httpError';
+import {
+  ParticipantEmailAddresses,
+  dedupeEmails,
+  resolveMainRecipient,
+  resolveParticipantRecipients,
+} from '../utils/emailUtils';
 
 /**
  * Funções utilitárias para montar e enviar e-mails transacionais. Mantemos o
  * HTML simples e destacamos o contexto de cada disparo.
  */
 
-export type ParticipantContact = {
+export type ParticipantContact = ParticipantEmailAddresses & {
   firstName: string;
-  isChild: boolean;
-  email?: string;
-  primaryGuardianEmail?: string;
   guardianEmails: string[];
 };
 
-type ParticipantEmailTarget = Pick<ParticipantContact, 'isChild' | 'email' | 'primaryGuardianEmail' | 'guardianEmails'>;
-
-const buildGuardianList = (primary?: string | null, extras: string[] = []): string[] => {
-  const guardians = new Set<string>();
-  if (primary) {
-    guardians.add(primary);
-  }
-  extras.forEach((email) => {
-    if (email) {
-      guardians.add(email);
-    }
-  });
-  return Array.from(guardians);
-};
-
-const resolveRecipients = (participant: ParticipantEmailTarget): string[] => {
-  const guardianList = buildGuardianList(participant.primaryGuardianEmail, participant.guardianEmails ?? []);
-  if (participant.isChild) {
-    return guardianList;
-  }
-  if (participant.email) {
-    return [participant.email];
-  }
-  return guardianList;
-};
-
-const resolveMainRecipient = (
-  participant: ParticipantEmailTarget,
-  recipients: string[],
-): string | null => {
-  if (participant.isChild) {
-    return participant.primaryGuardianEmail ?? recipients[0] ?? null;
-  }
-  if (participant.email) {
-    return participant.email;
-  }
-  return recipients[0] ?? null;
-};
+type ParticipantEmailTarget = ParticipantEmailAddresses;
 
 export const collectParticipantRecipients = (participant: ParticipantEmailTarget): string[] =>
-  resolveRecipients(participant);
+  resolveParticipantRecipients(participant);
 
 // Função que envia o E-MAIL DE VERIFICAÇÃO
 export const sendVerificationEmail = async (
   participant: ParticipantContact,
   code: string,
 ): Promise<void> => {
-  const recipients = resolveRecipients(participant);
+  const recipients = resolveParticipantRecipients(participant);
   if (recipients.length === 0) {
-    throw new Error('Nenhum e-mail válido foi informado para o envio do código de verificação.');
+    throw HttpError.badRequest('Nenhum e-mail válido foi informado para o envio do código de verificação.');
   }
   const mainRecipient = resolveMainRecipient(participant, recipients);
   const recipientLabel = mainRecipient ?? 'o endereço principal informado na inscrição';
@@ -93,13 +60,20 @@ export const sendDrawEmail = async (
   ticketCode: string,
   gifts: GiftItem[],
 ): Promise<void> => {
-  const recipientEmails = resolveRecipients(participant);
+  const participantTarget: ParticipantEmailTarget = {
+    isChild: participant.isChild,
+    email: participant.email,
+    primaryGuardianEmail: participant.primaryGuardianEmail,
+    guardianEmails: participant.guardianEmails,
+  };
+
+  const recipientEmails = resolveParticipantRecipients(participantTarget);
   if (recipientEmails.length === 0) {
     return;
   }
 
   const assignedId = assigned.id;
-  const mainRecipient = resolveMainRecipient(participant, recipientEmails);
+  const mainRecipient = resolveMainRecipient(participantTarget, recipientEmails);
   const greeting = mainRecipient
     ? `Estamos escrevendo para ${mainRecipient}.`
     : 'Estamos escrevendo para os contatos cadastrados.';
@@ -142,7 +116,8 @@ export const sendTestEmailToParticipant = async (
   participant: ParticipantDocument,
   recipients: string[],
 ): Promise<void> => {
-  if (recipients.length === 0) {
+  const uniqueRecipients = dedupeEmails(recipients);
+  if (uniqueRecipients.length === 0) {
     return;
   }
 
@@ -151,13 +126,13 @@ export const sendTestEmailToParticipant = async (
     <p>Este é um disparo de teste realizado pelo painel administrativo do Amigo Ocuto.</p>
     <p>Estamos verificando a entrega para os seguintes e-mails:</p>
     <ul>
-      ${recipients.map((email) => `<li>${email}</li>`).join('')}
+      ${uniqueRecipients.map((email) => `<li>${email}</li>`).join('')}
     </ul>
     <p>Se você recebeu esta mensagem, está tudo certo para o sorteio oficial.</p>
   `;
 
   await mailer.sendMail({
-    to: recipients,
+    to: uniqueRecipients,
     subject: 'Teste de disparo - Amigo Ocuto',
     html,
   });

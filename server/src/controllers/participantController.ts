@@ -1,6 +1,5 @@
 // Este ficheiro deve estar em server/src/controllers/participantController.ts
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
 import {
   registerParticipant,
   verifyParticipant,
@@ -11,6 +10,7 @@ import {
   updateParticipantEmail,
 } from '../services/participantService';
 import { ensureNames } from '../utils/nameUtils';
+import { HttpError, requireEmailParam, requireObjectIdParam, respondWithError } from '../utils/httpError';
 
 /**
  * Controlador responsável pelo fluxo público (inscrição, confirmação e listas).
@@ -32,9 +32,8 @@ export const createParticipant = async (
         'Inscrição criada com sucesso. Verifique o e-mail informado para confirmar a participação.',
     });
   } catch (error) {
-    // 2. Se falhar (ex: validação do Zod), devolve um erro 400
-    // (Foi isto que aconteceu no teu último log: POST 400)
-    res.status(400).json({ message: (error as Error).message });
+    // 2. Qualquer erro previsto retorna resposta amigável pelo helper comum.
+    respondWithError(res, error, 400);
   }
 };
 
@@ -51,7 +50,7 @@ export const confirmParticipant = async (
       message: 'E-mail confirmado com sucesso. Prepare a sua lista de presentes!',
     });
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
@@ -60,19 +59,15 @@ export const resendVerification = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
-  if (!id) {
-    res.status(400).json({ message: 'Informe o identificador da inscrição.' });
-    return;
-  }
   try {
+    const id = requireObjectIdParam(req.params.id, { resourceLabel: 'da inscrição' });
     // O serviço cuida de gerar um novo código e reenviar o e-mail automaticamente.
     await resendVerificationCode(id);
     res.json({
       message: 'Um novo código foi enviado para o e-mail principal cadastrado.',
     });
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
@@ -81,16 +76,8 @@ export const getParticipantStatus = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
-  if (!id) {
-    res.status(400).json({ message: 'Informe o identificador da inscrição.' });
-    return;
-  }
-  if (!Types.ObjectId.isValid(id)) {
-    res.status(400).json({ message: 'ID da inscrição inválido. O ID deve ter 24 caracteres hexadecimais.' });
-    return;
-  }
   try {
+    const id = requireObjectIdParam(req.params.id, { resourceLabel: 'da inscrição' });
     // Recupera o documento (confirmado ou informa erro amigável se ainda estiver pendente).
     const participant = await getParticipantOrFail(id);
     const contactEmail = participant.isChild
@@ -117,18 +104,16 @@ export const getParticipantStatus = async (
       createdAt: participant.createdAt,
     });
   } catch (error) {
-    res.status(404).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
 export const searchParticipantsByName = async (req: Request, res: Response): Promise<void> => {
-  const { q } = req.query;
-  if (!q || typeof q !== 'string') {
-    res.status(400).json({ message: 'Informe um termo para pesquisar participantes.' });
-    return;
-  }
-
   try {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string') {
+      throw HttpError.badRequest('Informe um termo para pesquisar participantes.');
+    }
     // Pesquisa com regex controlada para evitar injection e limitar resultados.
     const results = await searchParticipants(q);
     res.json({
@@ -150,7 +135,7 @@ export const searchParticipantsByName = async (req: Request, res: Response): Pro
       })
     });
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
@@ -158,12 +143,8 @@ export const getParticipantStatusByEmail = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { email } = req.params;
-  if (!email) {
-    res.status(400).json({ message: 'Informe o e-mail do participante.' });
-    return;
-  }
   try {
+    const email = requireEmailParam(req.params.email, { resourceLabel: 'do participante' });
     const participant = await getParticipantByEmailOrFail(email);
     const contactEmail = participant.isChild
       ? participant.primaryGuardianEmail ?? participant.guardianEmails[0] ?? null
@@ -189,12 +170,7 @@ export const getParticipantStatusByEmail = async (
       createdAt: participant.createdAt,
     });
   } catch (error) {
-    const errorMessage = (error as Error).message;
-    if (errorMessage.includes('não encontrado') || errorMessage.includes('não foi confirmada')) {
-      res.status(404).json({ message: errorMessage });
-    } else {
-      res.status(400).json({ message: errorMessage });
-    }
+    respondWithError(res, error, 400);
   }
 };
 
@@ -209,6 +185,6 @@ export const updateEmail = async (
       message: 'E-mail atualizado com sucesso. Um novo código de verificação foi enviado para o novo endereço.',
     });
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };

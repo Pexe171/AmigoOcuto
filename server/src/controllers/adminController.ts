@@ -8,6 +8,7 @@ import {
   listParticipantsWithGiftSummary,
   sendTestEmailsToAllParticipants
 } from '../services/adminService';
+import { HttpError, requireObjectIdParam, respondWithError } from '../utils/httpError';
 
 /**
  * Controlador do painel administrativo. Cada função aqui corresponde diretamente
@@ -49,8 +50,7 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
         });
         return;
       } catch (error) {
-        res.status(401).json({ message: 'Sessão administrativa expirada. Faça login novamente.' });
-        return;
+        throw HttpError.unauthorized('Sessão administrativa expirada. Faça login novamente.');
       }
     }
 
@@ -59,8 +59,7 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
       normalizedEmail !== env.ADMIN_EMAIL.toLowerCase() ||
       credentials.password !== env.ADMIN_PASSWORD
     ) {
-      res.status(401).json({ message: 'Credenciais administrativas inválidas.' });
-      return;
+      throw HttpError.unauthorized('Credenciais administrativas inválidas.');
     }
 
     const token = jwt.sign(
@@ -71,11 +70,7 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
 
     res.json({ message: 'Acesso autorizado.', token, email: env.ADMIN_EMAIL });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ message: 'Informe o e-mail e a senha administrativos.' });
-      return;
-    }
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
@@ -86,17 +81,15 @@ export const listParticipants = async (_req: Request, res: Response): Promise<vo
 };
 
 export const getParticipantDetails = async (req: Request, res: Response): Promise<void> => {
-  const { participantId } = req.params;
-  if (!participantId) {
-    res.status(400).json({ message: 'Informe o identificador do participante.' });
-    return;
-  }
   try {
+    const participantId = requireObjectIdParam(req.params.participantId, {
+      resourceLabel: 'do participante',
+    });
     // Aqui mostramos informações completas, incluindo lista de presentes.
     const details = await getParticipantDetailsForAdmin(participantId);
     res.json(details);
   } catch (error) {
-    res.status(404).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
@@ -105,7 +98,7 @@ export const createNewEvent = async (req: Request, res: Response): Promise<void>
     const event = await createEvent(req.body);
     res.status(201).json({ id: event._id, name: event.name, status: event.status });
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
@@ -124,26 +117,18 @@ export const listAllEvents = async (_req: Request, res: Response): Promise<void>
 };
 
 export const cancelExistingEvent = async (req: Request, res: Response): Promise<void> => {
-  const { eventId } = req.params;
-  if (!eventId) {
-    res.status(400).json({ message: 'Informe o identificador do evento.' });
-    return;
-  }
   try {
+    const eventId = requireObjectIdParam(req.params.eventId, { resourceLabel: 'do evento' });
     const event = await cancelEvent(eventId);
     res.json({ id: event._id, name: event.name, status: event.status });
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
 export const runDraw = async (req: Request, res: Response): Promise<void> => {
-  const { eventId } = req.params;
-  if (!eventId) {
-    res.status(400).json({ message: 'Informe o identificador do evento.' });
-    return;
-  }
   try {
+    const eventId = requireObjectIdParam(req.params.eventId, { resourceLabel: 'do evento' });
     // O serviço devolve o evento actualizado e a quantidade de tickets enviados.
     const result = await drawEvent({ eventId });
     res.json({
@@ -152,21 +137,17 @@ export const runDraw = async (req: Request, res: Response): Promise<void> => {
       tickets: result.tickets
     });
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
 export const getHistory = async (req: Request, res: Response): Promise<void> => {
-  const { eventId } = req.params;
-  if (!eventId) {
-    res.status(400).json({ message: 'Informe o identificador do evento.' });
-    return;
-  }
   try {
+    const eventId = requireObjectIdParam(req.params.eventId, { resourceLabel: 'do evento' });
     const history = await getEventHistory(eventId);
     res.json(history);
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    respondWithError(res, error, 400);
   }
 };
 
@@ -180,6 +161,6 @@ export const triggerTestEmails = async (_req: Request, res: Response): Promise<v
       recipients: result.recipients
     });
   } catch (error) {
-    res.status(500).json({ message: (error as Error).message });
+    respondWithError(res, error, 500);
   }
 };

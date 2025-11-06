@@ -3,6 +3,7 @@ import { ParticipantModel } from '../models/Participant';
 import { GiftListModel, GiftItem } from '../models/GiftList';
 import { collectParticipantRecipients, sendTestEmailToParticipant } from './emailService';
 import { ensureNames } from '../utils/nameUtils';
+import { HttpError } from '../utils/httpError';
 
 /**
  * Camada de serviços pensada para o painel administrativo. Aqui combinamos dados
@@ -109,7 +110,7 @@ export const listParticipantsWithGiftSummary = async (): Promise<AdminParticipan
 export const getParticipantDetailsForAdmin = async (participantId: string): Promise<AdminParticipantDetails> => {
   const participant = await ParticipantModel.findById(participantId).lean<ParticipantData | null>();
   if (!participant) {
-    throw new Error('Participante não encontrado.');
+    throw HttpError.notFound('Participante não encontrado.');
   }
 
   // Carregamos também a lista de presentes, se existir.

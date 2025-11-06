@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Types } from 'mongoose';
 import { GiftListModel, GiftListDocument, GiftItem } from '../models/GiftList';
 import { getParticipantOrFail, getParticipantByEmailOrFail } from './participantService';
+import { HttpError } from '../utils/httpError';
 
 /**
  * Serviço dedicado às listas de presentes. Responsável por validar entradas e
@@ -35,7 +36,7 @@ export const upsertGiftList = async (
   input: GiftListInput
 ): Promise<GiftListDocument> => {
   if (!Types.ObjectId.isValid(participantId)) {
-    throw new Error('ID da inscrição inválido. O ID deve ter 24 caracteres hexadecimais.');
+    throw HttpError.badRequest('ID da inscrição inválido. O ID deve ter 24 caracteres hexadecimais.');
   }
   await getParticipantOrFail(participantId);
   const data = giftListSchema.parse(input);
@@ -51,7 +52,7 @@ export const upsertGiftList = async (
 
 export const getGiftList = async (participantId: string): Promise<GiftListDocument | null> => {
   if (!Types.ObjectId.isValid(participantId)) {
-    throw new Error('ID da inscrição inválido. O ID deve ter 24 caracteres hexadecimais.');
+    throw HttpError.badRequest('ID da inscrição inválido. O ID deve ter 24 caracteres hexadecimais.');
   }
   // Verificar se o participante existe primeiro
   await getParticipantOrFail(participantId);
@@ -59,8 +60,11 @@ export const getGiftList = async (participantId: string): Promise<GiftListDocume
     const giftList = await GiftListModel.findOne({ participant: new Types.ObjectId(participantId) }).exec();
     return giftList;
   } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
     console.error(`[DEBUG] Erro ao buscar lista de presentes para participante ${participantId}:`, error);
-    throw error;
+    throw HttpError.internal('Erro ao buscar lista de presentes.', { cause: error });
   }
 };
 
@@ -92,7 +96,10 @@ export const getGiftListByEmail = async (email: string): Promise<GiftListDocumen
     const giftList = await GiftListModel.findOne({ participant: participant._id }).exec();
     return giftList;
   } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
     console.error(`[DEBUG] Erro ao buscar lista de presentes para e-mail ${email}:`, error);
-    throw error;
+    throw HttpError.internal('Erro ao buscar lista de presentes.', { cause: error });
   }
 };

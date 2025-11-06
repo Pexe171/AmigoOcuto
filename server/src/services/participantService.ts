@@ -5,6 +5,13 @@ import { PendingParticipantModel, PendingParticipantDocument } from '../models/P
 import { sendVerificationEmail, ParticipantContact } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
 import { ensureNames } from '../utils/nameUtils';
+import { HttpError } from '../utils/httpError';
+import {
+  collectGuardianEmails,
+  normalizeEmail,
+  normalizeEmailList,
+  normalizeNullableEmail,
+} from '../utils/emailUtils';
 
 /**
  * Serviço que conduz toda a jornada do participante: inscrição, verificação,
@@ -60,19 +67,6 @@ const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
 
-const buildGuardianList = (primary?: string | null, extras: string[] = []): string[] => {
-  const set = new Set<string>();
-  if (primary) {
-    set.add(primary);
-  }
-  extras.forEach((email) => {
-    if (email) {
-      set.add(email);
-    }
-  });
-  return Array.from(set);
-};
-
 export const registerParticipant = async (input: RegistrationInput): Promise<PendingParticipantDocument> => {
   const data = registrationSchema.parse(input);
   const { firstName, secondName } = ensureNames({
@@ -82,21 +76,26 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
   });
 
   if (!firstName || !secondName) {
-    throw new Error('Informe o nome completo.');
+    throw HttpError.badRequest('Informe o nome completo.');
   }
 
+  const normalizedEmail = normalizeNullableEmail(data.email);
+  const primaryGuardianEmail = normalizeNullableEmail(data.primaryGuardianEmail);
+  const guardianEmails = data.isChild
+    ? collectGuardianEmails(primaryGuardianEmail, data.guardianEmails ?? [])
+    : [];
+
   if (data.isChild) {
-    if (!data.primaryGuardianEmail) {
-      throw new Error('Crianças precisam de um e-mail principal de responsável.');
+    if (!primaryGuardianEmail) {
+      throw HttpError.badRequest('Crianças precisam de um e-mail principal de responsável.');
     }
   } else {
-    if (!data.email) {
-      throw new Error('Adultos precisam informar um e-mail para contato.');
+    if (!normalizedEmail) {
+      throw HttpError.badRequest('Adultos precisam informar um e-mail para contato.');
     }
-    const normalizedEmail = data.email.toLowerCase();
     const existing = await ParticipantModel.findOne({ email: normalizedEmail });
     if (existing) {
-      throw new Error('Este e-mail já está inscrito e confirmado.');
+      throw HttpError.conflict('Este e-mail já está inscrito e confirmado.');
     }
     await PendingParticipantModel.deleteMany({ email: normalizedEmail });
   }
@@ -107,17 +106,11 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
     expiresAt: new Date(Date.now() + verificationTTLMinutes * 60 * 1000)
   };
 
-  const primaryGuardianEmail = data.primaryGuardianEmail?.toLowerCase();
-  const normalizedGuardianEmails = data.guardianEmails?.map((email) => email.toLowerCase()) ?? [];
-  const guardianEmails = data.isChild
-    ? buildGuardianList(primaryGuardianEmail, normalizedGuardianEmails)
-    : [];
-
   const participant = new PendingParticipantModel({
     firstName,
     secondName,
     nickname: data.nickname,
-    email: data.email?.toLowerCase(),
+    email: normalizedEmail,
     isChild: data.isChild,
     primaryGuardianEmail,
     guardianEmails,
@@ -129,7 +122,7 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
   const contact: ParticipantContact = {
     firstName: participant.firstName,
     isChild: participant.isChild,
-    guardianEmails: participant.guardianEmails
+    guardianEmails: participant.guardianEmails ?? []
   };
 
   if (participant.primaryGuardianEmail) {
@@ -154,18 +147,18 @@ export const verifyParticipant = async (
   if (!pending) {
     const already = await ParticipantModel.findById(data.participantId);
     if (already && already.emailVerified) {
-      throw new Error('Esta inscrição já foi confirmada anteriormente.');
+      throw HttpError.conflict('Esta inscrição já foi confirmada anteriormente.');
     }
-    throw new Error('Inscrição não encontrada ou já verificada.');
+    throw HttpError.notFound('Inscrição não encontrada ou já verificada.');
   }
 
   if (pending.verification.expiresAt.getTime() < Date.now()) {
-    throw new Error('O código de verificação expirou. Solicite um novo.');
+    throw HttpError.badRequest('O código de verificação expirou. Solicite um novo.');
   }
 
   const isValidCode = await bcrypt.compare(data.code, pending.verification.codeHash);
   if (!isValidCode) {
-    throw new Error('Código inválido. Confira o e-mail enviado.');
+    throw HttpError.badRequest('Código inválido. Confira o e-mail enviado.');
   }
 
   const participant = new ParticipantModel({
@@ -196,9 +189,9 @@ export const resendVerificationCode = async (participantId: string): Promise<voi
   if (!pending) {
     const participant = await ParticipantModel.findById(participantId);
     if (participant && participant.emailVerified) {
-      throw new Error('Este participante já confirmou o e-mail.');
+      throw HttpError.conflict('Este participante já confirmou o e-mail.');
     }
-    throw new Error('Inscrição não encontrada. Faça uma nova inscrição.');
+    throw HttpError.notFound('Inscrição não encontrada. Faça uma nova inscrição.');
   }
 
   const verificationCode = generateVerificationCode();
@@ -211,7 +204,7 @@ export const resendVerificationCode = async (participantId: string): Promise<voi
   const pendingContact: ParticipantContact = {
     firstName: pending.firstName,
     isChild: pending.isChild,
-    guardianEmails: pending.guardianEmails
+    guardianEmails: pending.guardianEmails ?? []
   };
 
   if (pending.primaryGuardianEmail) {
@@ -234,15 +227,15 @@ export const updateParticipantEmail = async (
   input: z.infer<typeof updateEmailSchema>
 ): Promise<void> => {
   const data = updateEmailSchema.parse(input);
-  const normalizedEmail = data.newEmail.toLowerCase().trim();
+  const normalizedEmail = normalizeEmail(data.newEmail);
 
   const pending = await PendingParticipantModel.findById(data.participantId);
   if (!pending) {
     const participant = await ParticipantModel.findById(data.participantId);
     if (participant && participant.emailVerified) {
-      throw new Error('Este participante já confirmou o e-mail. Não é possível alterar o e-mail após a confirmação.');
+      throw HttpError.conflict('Este participante já confirmou o e-mail. Não é possível alterar o e-mail após a confirmação.');
     }
-    throw new Error('Inscrição não encontrada. Faça uma nova inscrição.');
+    throw HttpError.notFound('Inscrição não encontrada. Faça uma nova inscrição.');
   }
 
   // Verificar se o novo email já está em uso (participantes confirmados)
@@ -253,11 +246,11 @@ export const updateParticipantEmail = async (
     ]
   });
   if (existingParticipant) {
-    throw new Error('Este e-mail já está em uso por outra inscrição confirmada.');
+    throw HttpError.conflict('Este e-mail já está em uso por outra inscrição confirmada.');
   }
 
   // Verificar se já existe um pendente com este email (exceto o próprio)
-  const existingPending = await PendingParticipantModel.findOne({ 
+  const existingPending = await PendingParticipantModel.findOne({
     $or: [
       { email: normalizedEmail },
       { primaryGuardianEmail: normalizedEmail }
@@ -265,18 +258,17 @@ export const updateParticipantEmail = async (
     _id: { $ne: data.participantId }
   });
   if (existingPending) {
-    throw new Error('Este e-mail já está em uso por outra inscrição pendente.');
+    throw HttpError.conflict('Este e-mail já está em uso por outra inscrição pendente.');
   }
 
   // Atualizar o email
   if (pending.isChild) {
     // Para crianças, atualizar o email do responsável principal
-    if (!normalizedEmail) {
-      throw new Error('É necessário informar um e-mail válido para o responsável.');
-    }
     pending.primaryGuardianEmail = normalizedEmail;
     // Limpar emails adicionais se necessário
-    pending.guardianEmails = pending.guardianEmails.filter(e => e !== normalizedEmail);
+    pending.guardianEmails = normalizeEmailList(
+      (pending.guardianEmails ?? []).filter((email) => email !== normalizedEmail),
+    );
   } else {
     // Para adultos, atualizar o email principal
     pending.email = normalizedEmail;
@@ -295,7 +287,7 @@ export const updateParticipantEmail = async (
   const pendingContact: ParticipantContact = {
     firstName: pending.firstName,
     isChild: pending.isChild,
-    guardianEmails: pending.guardianEmails
+    guardianEmails: pending.guardianEmails ?? []
   };
 
   if (pending.primaryGuardianEmail) {
@@ -315,41 +307,39 @@ export const getParticipantOrFail = async (participantId: string): Promise<Parti
     if (!participant) {
       const pending = await PendingParticipantModel.findById(participantId);
       if (pending) {
-        throw new Error('Esta inscrição ainda não foi confirmada. Valide o código enviado por e-mail.');
+        throw HttpError.conflict('Esta inscrição ainda não foi confirmada. Valide o código enviado por e-mail.');
       }
       // Verificar se há algum participante no banco para debug
       const totalParticipants = await ParticipantModel.countDocuments();
       const totalPending = await PendingParticipantModel.countDocuments();
       console.log(`[DEBUG] Participante ${participantId} não encontrado. Total de participantes verificados: ${totalParticipants}, Total pendentes: ${totalPending}`);
-      throw new Error('Participante não encontrado. Verifique se o ID está correto e se a inscrição foi confirmada.');
+      throw HttpError.notFound('Participante não encontrado. Verifique se o ID está correto e se a inscrição foi confirmada.');
     }
     return participant;
   } catch (error) {
-    // Se já é um erro conhecido, re-lança
-    if (error instanceof Error && (error.message.includes('não encontrado') || error.message.includes('não foi confirmada'))) {
+    if (error instanceof HttpError) {
       throw error;
     }
-    // Se for erro de conexão, informa
     console.error(`[DEBUG] Erro ao buscar participante ${participantId}:`, error);
-    throw new Error('Erro ao buscar participante. Verifique a conexão com o banco de dados.');
+    throw HttpError.internal('Erro ao buscar participante. Verifique a conexão com o banco de dados.', { cause: error });
   }
 };
 
 export const getParticipantByEmailOrFail = async (email: string): Promise<ParticipantDocument> => {
   if (!email || typeof email !== 'string') {
-    throw new Error('E-mail inválido.');
+    throw HttpError.badRequest('E-mail inválido.');
   }
-  const normalizedEmail = email.toLowerCase().trim();
-  
+  const normalizedEmail = normalizeEmail(email);
+
   try {
     // Buscar primeiro no modelo de participantes confirmados
     let participant = await ParticipantModel.findOne({ email: normalizedEmail });
-    
+
     if (!participant) {
       // Se não encontrou pelo email direto, pode ser criança com email do responsável
       participant = await ParticipantModel.findOne({ primaryGuardianEmail: normalizedEmail });
     }
-    
+
     if (!participant) {
       // Verificar se está pendente
       const pending = await PendingParticipantModel.findOne({
@@ -358,23 +348,21 @@ export const getParticipantByEmailOrFail = async (email: string): Promise<Partic
           { primaryGuardianEmail: normalizedEmail }
         ]
       });
-      
+
       if (pending) {
-        throw new Error('Esta inscrição ainda não foi confirmada. Valide o código enviado por e-mail.');
+        throw HttpError.conflict('Esta inscrição ainda não foi confirmada. Valide o código enviado por e-mail.');
       }
-      
-      throw new Error('Participante não encontrado com este e-mail. Verifique se o e-mail está correto e se a inscrição foi confirmada.');
+
+      throw HttpError.notFound('Participante não encontrado com este e-mail. Verifique se o e-mail está correto e se a inscrição foi confirmada.');
     }
-    
+
     return participant;
   } catch (error) {
-    // Se já é um erro conhecido, re-lança
-    if (error instanceof Error && (error.message.includes('não encontrado') || error.message.includes('não foi confirmada'))) {
+    if (error instanceof HttpError) {
       throw error;
     }
-    // Se for erro de conexão, informa
     console.error(`[DEBUG] Erro ao buscar participante por e-mail ${normalizedEmail}:`, error);
-    throw new Error('Erro ao buscar participante. Verifique a conexão com o banco de dados.');
+    throw HttpError.internal('Erro ao buscar participante. Verifique a conexão com o banco de dados.', { cause: error });
   }
 };
 

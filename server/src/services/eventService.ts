@@ -7,6 +7,7 @@ import { listVerifiedParticipants, getParticipantOrFail } from './participantSer
 import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftItems } from './giftListService';
+import { HttpError } from '../utils/httpError';
 
 /**
  * Regras de negócio dos eventos e sorteios. Esta camada garante que só sorteamos
@@ -37,7 +38,7 @@ const shuffle = <T>(input: T[]): T[] => {
 
 const ensureNoSelfAssignment = <T>(participants: T[]): T[] => {
   if (participants.length < 2) {
-    throw new Error('São necessários pelo menos dois participantes verificados para o sorteio.');
+    throw HttpError.badRequest('São necessários pelo menos dois participantes verificados para o sorteio.');
   }
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -63,7 +64,7 @@ export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<E
 
   const participantIds = data.participantIds ?? (await listVerifiedParticipants()).map((p) => p.id);
   if (participantIds.length < 2) {
-    throw new Error('Cadastre pelo menos dois participantes verificados antes de criar o evento.');
+    throw HttpError.badRequest('Cadastre pelo menos dois participantes verificados antes de criar o evento.');
   }
 
   const uniqueIds = Array.from(new Set(participantIds));
@@ -85,7 +86,7 @@ export const listEvents = async (): Promise<EventDocument[]> => {
 export const cancelEvent = async (eventId: string): Promise<EventDocument> => {
   const event = await EventModel.findById(eventId);
   if (!event) {
-    throw new Error('Evento não encontrado.');
+    throw HttpError.notFound('Evento não encontrado.');
   }
   event.status = 'cancelado';
   await event.save();
@@ -96,24 +97,24 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
   const data = drawSchema.parse(input);
   const event = await EventModel.findById(data.eventId);
   if (!event) {
-    throw new Error('Evento não encontrado.');
+    throw HttpError.notFound('Evento não encontrado.');
   }
   if (event.status === 'cancelado') {
-    throw new Error('Eventos cancelados não podem receber sorteios.');
+    throw HttpError.conflict('Eventos cancelados não podem receber sorteios.');
   }
   if (event.status === 'sorteado') {
-    throw new Error('Este evento já foi sorteado. Crie um novo evento para refazer.');
+    throw HttpError.conflict('Este evento já foi sorteado. Crie um novo evento para refazer.');
   }
 
   const participants = await Promise.all(event.participants.map((id) => getParticipantOrFail(id.toString())));
   const verifiedParticipants = participants.filter((participant) => participant.emailVerified);
 
   if (verifiedParticipants.length < 2) {
-    throw new Error('São necessários pelo menos dois participantes verificados para o sorteio.');
+    throw HttpError.badRequest('São necessários pelo menos dois participantes verificados para o sorteio.');
   }
 
   if (verifiedParticipants.length % 2 !== 0) {
-    throw new Error('O sorteio exige um número par de participantes verificados.');
+    throw HttpError.badRequest('O sorteio exige um número par de participantes verificados.');
   }
 
   const assignments = ensureNoSelfAssignment<ParticipantDocument>(verifiedParticipants);
@@ -149,7 +150,7 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
 export const getEventHistory = async (eventId: string): Promise<{ name: string; status: string; sorteios: { drawnAt: Date; participantes: number }[] }> => {
   const event = await EventModel.findById(eventId);
   if (!event) {
-    throw new Error('Evento não encontrado.');
+    throw HttpError.notFound('Evento não encontrado.');
   }
 
   return {
