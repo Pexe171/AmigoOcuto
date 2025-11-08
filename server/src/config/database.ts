@@ -81,12 +81,19 @@ export const connectDatabase = async (): Promise<typeof mongoose> => {
     }
   } catch (error) {
     if (isUnauthorized(error)) {
-      console.error(
-        'O utilizador configurado no MongoDB não possui permissão de leitura (find) na coleção participants.',
+      if (env.NODE_ENV === 'production') {
+        console.error(
+          'O utilizador configurado no MongoDB não possui permissão de leitura (find) na coleção participants.',
+        );
+        throw new Error(
+          'Falha ao conectar ao MongoDB: conceda permissão de leitura (find) ao utilizador configurado.',
+        );
+      }
+
+      console.warn(
+        'Usuário do MongoDB sem permissão de leitura. Iniciando instância MongoDB em memória para desenvolvimento.',
       );
-      throw new Error(
-        'Falha ao conectar ao MongoDB: conceda permissão de leitura (find) ao utilizador configurado.',
-      );
+      return connectInMemory();
     }
 
     if (

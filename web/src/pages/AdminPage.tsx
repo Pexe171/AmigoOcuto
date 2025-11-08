@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import FestiveCard from '../components/FestiveCard';
@@ -10,9 +11,11 @@ import {
   labelClass,
   primaryButtonClass,
   secondaryButtonClass,
+  dangerButtonClass,
   ghostButtonClass
 } from '../styles/theme';
 
+// ... (type definitions remain the same)
 type EventSummary = {
   id: string;
   name: string;
@@ -37,7 +40,6 @@ type ParticipantSummary = {
   firstName: string;
   secondName: string;
   fullName: string;
-  nickname?: string;
   email?: string;
   isChild: boolean;
   emailVerified: boolean;
@@ -59,7 +61,6 @@ type ParticipantDetail = {
   firstName: string;
   secondName: string;
   fullName: string;
-  nickname?: string;
   email?: string;
   isChild: boolean;
   emailVerified: boolean;
@@ -77,99 +78,65 @@ type TestEmailResult = {
   message: string;
 };
 
+
 const TOKEN_KEY = 'amigoocuto.adminToken';
 
 const AdminPage: React.FC = () => {
   const { notification, show, clear } = useNotification();
-  const [token, setToken] = useState<string>(() => localStorage.getItem(TOKEN_KEY) ?? '');
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const navigate = useNavigate();
+  const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY));
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [shouldRestoreSession, setShouldRestoreSession] = useState<boolean>(() => Boolean(localStorage.getItem(TOKEN_KEY)));
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!token) {
-      setIsAuthenticated(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (isAuthenticated && token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    } else if (!token) {
-      localStorage.removeItem(TOKEN_KEY);
-    }
-  }, [isAuthenticated, token]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setSelectedEvent(null);
-      setSelectedParticipantId(null);
-    }
-  }, [isAuthenticated]);
-
-  const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : null), [token]);
-  const axiosAuthConfig = useMemo(() => (authHeaders ? { headers: authHeaders } : undefined), [authHeaders]);
-
-  type AdminLoginPayload = { email?: string; password?: string; token?: string };
+  const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const axiosAuthConfig = useMemo(() => ({ headers: authHeaders }), [authHeaders]);
 
   type AdminLoginResponse = { token: string; email: string; message?: string };
 
-  const loginMutation = useMutation<AdminLoginResponse, unknown, AdminLoginPayload>({
-    mutationFn: async (payload) => {
-      const response = await api.post('/admin/login', payload);
+  const restoreSessionMutation = useMutation<AdminLoginResponse, Error, string>({
+    mutationFn: async (tokenToVerify) => {
+      const response = await api.post('/admin/login', { token: tokenToVerify });
       return response.data as AdminLoginResponse;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (data) => {
       setToken(data.token);
       setIsAuthenticated(true);
-      setShouldRestoreSession(false);
-      if (!variables.token) {
-        setEmail('');
-        setPassword('');
-      }
-      show('success', variables.token ? 'Sessão administrativa restaurada.' : data.message ?? 'Acesso autorizado.');
+      show('success', 'Sessão administrativa restaurada.');
     },
-    onError: (error, variables) => {
-      if (variables.token) {
-        setToken('');
-        setShouldRestoreSession(false);
-      }
+    onError: (error) => {
+      localStorage.removeItem(TOKEN_KEY);
+      setToken(null);
       setIsAuthenticated(false);
-      show('error', extractErrorMessage(error));
+      show('error', 'Sessão expirada. Por favor, faça login novamente.');
+      navigate('/adm');
     }
   });
 
   useEffect(() => {
-    if (shouldRestoreSession && token && !isAuthenticated && !loginMutation.isPending) {
-      loginMutation.mutate({ token });
+    if (token && !isAuthenticated) {
+      restoreSessionMutation.mutate(token);
+    } else if (!token) {
+      navigate('/adm');
     }
-  }, [shouldRestoreSession, token, isAuthenticated, loginMutation]);
-
-  const handleLogin = (): void => {
-    if (!email || !password) {
-      show('error', 'Informe e-mail e senha administrativos.');
-      return;
-    }
-    clear();
-    loginMutation.mutate({ email, password });
-  };
+  }, [token, isAuthenticated, navigate]);
 
   const handleLogout = (): void => {
-    setToken('');
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
     setIsAuthenticated(false);
-    setShouldRestoreSession(false);
     show('info', 'Sessão administrativa encerrada.');
+    navigate('/adm');
   };
-
+  
   const clearSessionSilently = (): void => {
-    setToken('');
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
     setIsAuthenticated(false);
-    setShouldRestoreSession(false);
+    navigate('/adm');
   };
 
+  // ... (all queries and mutations remain the same, but will now correctly use the auth state)
   const eventsQuery = useQuery<EventSummary[]>({
     queryKey: ['admin-events', token],
     queryFn: async () => {
@@ -219,6 +186,23 @@ const AdminPage: React.FC = () => {
     }
   });
 
+  const cancelEventMutation = useMutation<EventSummary, unknown, string>({
+    mutationFn: async (eventId) => {
+      const response = await api.post(`/admin/events/${eventId}/cancel`, null, axiosAuthConfig);
+      return response.data as EventSummary;
+    },
+    onSuccess: (data) => {
+      show('success', `Evento "${data.name}" foi cancelado.`);
+      void eventsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
+  });
+
   const testEmailMutation = useMutation<TestEmailResult>({
     mutationFn: async () => {
       const response = await api.post('/admin/emails/test', null, axiosAuthConfig);
@@ -227,6 +211,23 @@ const AdminPage: React.FC = () => {
     onSuccess: (data) => {
       const detail = `${data.participants} participante(s), ${data.recipients} destinatário(s).`;
       show('success', `${data.message} ${detail}`);
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
+  });
+
+  const createEventMutation = useMutation<EventSummary, unknown, { name: string }>({
+    mutationFn: async (newEvent) => {
+      const response = await api.post('/admin/events', newEvent, axiosAuthConfig);
+      return response.data as EventSummary;
+    },
+    onSuccess: (data) => {
+      show('success', `Evento "${data.name}" criado com sucesso.`);
+      void eventsQuery.refetch();
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -255,7 +256,7 @@ const AdminPage: React.FC = () => {
       clearSessionSilently();
     }
     show('error', extractErrorMessage(error));
-  }, [eventsQuery.error, show, clearSessionSilently]);
+  }, [eventsQuery.error, show]);
 
   useEffect(() => {
     const error = participantsQuery.error;
@@ -266,7 +267,7 @@ const AdminPage: React.FC = () => {
       clearSessionSilently();
     }
     show('error', extractErrorMessage(error));
-  }, [participantsQuery.error, show, clearSessionSilently]);
+  }, [participantsQuery.error, show]);
 
   useEffect(() => {
     const error = participantDetailsQuery.error;
@@ -278,7 +279,7 @@ const AdminPage: React.FC = () => {
       return;
     }
     show('error', extractErrorMessage(error));
-  }, [participantDetailsQuery.error, show, clearSessionSilently]);
+  }, [participantDetailsQuery.error, show]);
 
   useEffect(() => {
     const error = historyQuery.error;
@@ -289,7 +290,7 @@ const AdminPage: React.FC = () => {
       clearSessionSilently();
     }
     show('error', extractErrorMessage(error));
-  }, [historyQuery.error, show, clearSessionSilently]);
+  }, [historyQuery.error, show]);
 
   const participants: ParticipantSummary[] = participantsQuery.data ?? [];
   const events: EventSummary[] = eventsQuery.data ?? [];
@@ -309,86 +310,37 @@ const AdminPage: React.FC = () => {
     return { disabled: false };
   };
 
+
+  if (!isAuthenticated) {
+    return (
+      <FestiveCard title="Acesso restrito" eyebrow="🚫">
+        <div className="text-center text-white/80">
+          <p>Verificando autenticação...</p>
+        </div>
+      </FestiveCard>
+    );
+  }
+
   return (
     <FestiveCard
-      title="Painel administrativo"
-      eyebrow="🛠️ Organização do Amigo Ocuto"
+      title="Painel Administrativo"
+      eyebrow="🛠️ Organização do Amigo Oculto"
       description={
-        <>
+        <div className="flex justify-between items-center">
           <p>
-            Entre com o e-mail e a senha administrativos para consultar participantes confirmados, acompanhar eventos e
-            disparar sorteios com segurança.
+            Bem-vindo! Use as ferramentas abaixo para gerenciar o evento.
           </p>
-          <p className="text-sm text-white/70">
-            Acesse também as ferramentas de teste para validar o envio de e-mails antes do grande dia.
-          </p>
-        </>
+          <button type="button" className={ghostButtonClass} onClick={handleLogout}>
+            Sair
+          </button>
+        </div>
       }
       maxWidth="max-w-6xl"
     >
       {notification && <Notification type={notification.type} message={notification.message} onClose={clear} />}
 
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold text-white">Autenticação</h3>
-        <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] md:items-end">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="adminEmail" className={labelClass}>
-                E-mail administrativo
-              </label>
-              <input
-                id="adminEmail"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className={inputClass}
-                placeholder="seu.email@empresa.com"
-                autoComplete="email"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="adminPassword" className={labelClass}>
-                Senha administrativa
-              </label>
-              <input
-                id="adminPassword"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className={inputClass}
-                placeholder="Digite a senha cadastrada"
-                autoComplete="current-password"
-              />
-            </div>
-          </div>
-          <div className="space-y-3">
-            <p className="text-sm text-white/70">
-              Status:{' '}
-              <span className="font-semibold text-white">
-                {isAuthenticated ? 'Sessão autenticada' : 'Sessão não autenticada'}
-              </span>
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                className={primaryButtonClass}
-                onClick={handleLogin}
-                disabled={loginMutation.isPending}
-              >
-                {loginMutation.isPending ? 'Validando...' : 'Entrar'}
-              </button>
-              {isAuthenticated && (
-                <button type="button" className={ghostButtonClass} onClick={handleLogout}>
-                  Sair
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {isAuthenticated ? (
-        <>
+      {/* The rest of the admin page UI remains here */}
+      <>
           <section className="space-y-4">
             <div className="flex flex-col gap-3 rounded-2xl border border-white/20 bg-black/20 p-6 text-white/85 text-sm md:flex-row md:items-center md:justify-between">
               <div>
@@ -430,7 +382,7 @@ const AdminPage: React.FC = () => {
                   <thead className="uppercase text-xs tracking-[0.25em] text-white/60">
                     <tr>
                       <th className="px-4 py-3">Nome</th>
-                      <th className="px-4 py-3">Apelido</th>
+                      <th className="px-4 py-3">E-mail</th>
                       <th className="px-4 py-3">Tipo</th>
                       <th className="px-4 py-3">Presença</th>
                       <th className="px-4 py-3">Itens</th>
@@ -442,7 +394,7 @@ const AdminPage: React.FC = () => {
                     {participants.map((participantSummary) => (
                       <tr key={participantSummary.id}>
                         <td className="px-4 py-3">{participantSummary.fullName}</td>
-                        <td className="px-4 py-3">{participantSummary.nickname ?? '—'}</td>
+                        <td className="px-4 py-3">{participantSummary.email ?? '—'}</td>
                         <td className="px-4 py-3 capitalize">{participantSummary.isChild ? 'Criança' : 'Adulto'}</td>
                         <td className="px-4 py-3">
                           {participantSummary.attendingInPerson ? 'Presencial' : 'Remoto/indefinido'}
@@ -491,7 +443,6 @@ const AdminPage: React.FC = () => {
                   <div>
                     <p className="text-xl font-semibold text-white">
                       {selectedParticipant.fullName}
-                      {selectedParticipant.nickname ? ` (${selectedParticipant.nickname})` : ''}
                     </p>
                     <p className="text-white/70">
                       Tipo: {selectedParticipant.isChild ? 'Criança' : 'Adulto'} · Presença:{' '}
@@ -545,6 +496,40 @@ const AdminPage: React.FC = () => {
           )}
 
           <section className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Criar novo evento</h3>
+            <form
+              className="flex flex-col gap-3 rounded-2xl border border-white/20 bg-black/20 p-6 md:flex-row md:items-end"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const name = formData.get('eventName') as string;
+                if (name) {
+                  createEventMutation.mutate({ name });
+                  e.currentTarget.reset();
+                }
+              }}
+            >
+              <div className="flex-grow">
+                <label htmlFor="eventName" className={labelClass}>
+                  Nome do evento
+                </label>
+                <input
+                  type="text"
+                  id="eventName"
+                  name="eventName"
+                  className={inputClass}
+                  placeholder="Ex: Amigo Oculto da Família 2024"
+                  required
+                  minLength={4}
+                />
+              </div>
+              <button type="submit" className={primaryButtonClass} disabled={createEventMutation.isPending}>
+                {createEventMutation.isPending ? 'Criando...' : 'Criar evento'}
+              </button>
+            </form>
+          </section>
+
+          <section className="space-y-4">
             <h3 className="text-lg font-semibold text-white">Eventos cadastrados</h3>
             <p className="text-sm text-white/70">
               Os eventos são exibidos apenas para consulta. Utilize o botão “Sortear” quando todos os participantes estiverem
@@ -574,24 +559,42 @@ const AdminPage: React.FC = () => {
                           <td className="px-4 py-3">{event.participantes}</td>
                           <td className="px-4 py-3">{event.sorteios}</td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className={secondaryButtonClass}
-                                onClick={() => setSelectedEvent(event.id)}
-                              >
-                                Histórico
-                              </button>
-                              <button
-                                type="button"
-                                className={primaryButtonClass}
-                                onClick={() => drawEventMutation.mutate(event.id)}
-                                disabled={drawEventMutation.isPending || drawState.disabled}
-                                title={drawState.reason ?? undefined}
-                              >
-                                {drawEventMutation.isPending ? 'Sorteando...' : 'Sortear'}
-                              </button>
-                            </div>
+                            {event.status === 'cancelado' ? (
+                              <span className="text-red-400/90">Esse evento foi cancelado</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  className={secondaryButtonClass}
+                                  onClick={() => setSelectedEvent(event.id)}
+                                >
+                                  Histórico
+                                </button>
+                                <button
+                                  type="button"
+                                  className={primaryButtonClass}
+                                  onClick={() => drawEventMutation.mutate(event.id)}
+                                  disabled={drawEventMutation.isPending || drawState.disabled}
+                                  title={drawState.reason ?? undefined}
+                                >
+                                  {drawEventMutation.isPending ? 'Sorteando...' : 'Sortear'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={dangerButtonClass}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(`Tem a certeza que quer cancelar o evento "${event.name}"?`)
+                                    ) {
+                                      cancelEventMutation.mutate(event.id);
+                                    }
+                                  }}
+                                  disabled={cancelEventMutation.isPending}
+                                >
+                                  {cancelEventMutation.isPending ? 'Cancelando...' : 'Cancelar'}
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -620,11 +623,6 @@ const AdminPage: React.FC = () => {
             </section>
           )}
         </>
-      ) : (
-        <div className="rounded-2xl border border-white/20 bg-black/20 p-6 text-white/80">
-          Informe o e-mail e a senha administrativos e clique em “Entrar” para acessar os recursos.
-        </div>
-      )}
     </FestiveCard>
   );
 };

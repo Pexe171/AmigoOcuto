@@ -1,11 +1,14 @@
 import http from 'http';
 import app from './app';
 import { env } from './config/environment';
-import { connectDatabase } from './config/database';
+import sqliteDb from './config/sqliteDatabase'; // Import the SQLite database instance
 
 const start = async (): Promise<void> => {
   try {
-    await connectDatabase();
+    // No need to call connectDatabase() for SQLite, as it's initialized on import
+    // You can add a simple check or log here if needed
+    console.log('✅ SQLite database ready.');
+
     const server = http.createServer(app);
     
     server.on('error', (error: NodeJS.ErrnoException) => {

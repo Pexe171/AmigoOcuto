@@ -1,6 +1,7 @@
 // Este ficheiro deve estar em server/src/controllers/participantController.ts
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
+import { Participant, PendingParticipant } from '../services/participantService';
 import {
   registerParticipant,
   verifyParticipant,
@@ -19,16 +20,19 @@ export const createParticipant = async (
 ): Promise<void> => {
   try {
     // 1. Tenta registar o participante (aqui é que o email é disparado)
-    const participant = await registerParticipant(req.body);
+    const participant: PendingParticipantDocument = await registerParticipant(req.body);
     res.status(201).json({
       id: participant._id,
       message:
         'Inscrição criada com sucesso. Verifique o e-mail informado para confirmar a participação.',
     });
   } catch (error) {
-    // 2. Se falhar (ex: validação do Zod), devolve um erro 400
-    // (Foi isto que aconteceu no teu último log: POST 400)
-    res.status(400).json({ message: (error as Error).message });
+    if ((error as Error).message.includes('validação') || (error as Error).message.includes('inválido')) {
+      res.status(400).json({ message: (error as Error).message });
+    } else {
+      console.error('Erro ao criar participante:', error);
+      res.status(500).json({ message: 'Ocorreu um erro interno no servidor.' });
+    }
   }
 };
 
@@ -38,7 +42,7 @@ export const confirmParticipant = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const participant = await verifyParticipant(req.body);
+    const participant: ParticipantDocument = await verifyParticipant(req.body);
     res.json({
       id: participant._id,
       emailVerified: participant.emailVerified,
@@ -79,10 +83,6 @@ export const getParticipantStatus = async (
     res.status(400).json({ message: 'Informe o identificador da inscrição.' });
     return;
   }
-  if (!Types.ObjectId.isValid(id)) {
-    res.status(400).json({ message: 'ID da inscrição inválido. O ID deve ter 24 caracteres hexadecimais.' });
-    return;
-  }
   try {
     const participant = await getParticipantOrFail(id);
     const contactEmail = participant.isChild
@@ -98,7 +98,6 @@ export const getParticipantStatus = async (
       firstName: participant.firstName,
       secondName: participant.secondName,
       fullName: names.fullName,
-      nickname: participant.nickname,
       emailVerified: participant.emailVerified,
       isChild: participant.isChild,
       email: participant.email,
@@ -134,7 +133,6 @@ export const searchParticipantsByName = async (req: Request, res: Response): Pro
           firstName: participant.firstName,
           secondName: participant.secondName,
           fullName: names.fullName,
-          nickname: participant.nickname,
           emailVerified: participant.emailVerified,
           isChild: participant.isChild,
         };
@@ -169,7 +167,6 @@ export const getParticipantStatusByEmail = async (
       firstName: participant.firstName,
       secondName: participant.secondName,
       fullName: names.fullName,
-      nickname: participant.nickname,
       emailVerified: participant.emailVerified,
       isChild: participant.isChild,
       email: participant.email,
@@ -197,6 +194,49 @@ export const updateEmail = async (
     await updateParticipantEmail(req.body);
     res.json({
       message: 'E-mail atualizado com sucesso. Um novo código de verificação foi enviado para o novo endereço.',
+    });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+};
+
+import jwt from 'jsonwebtoken';
+import { env } from '../config/environment';
+import { authenticateParticipantByEmailAndCode } from '../services/participantService';
+
+type ParticipantTokenPayload = {
+  participantId: string;
+  email?: string;
+};
+
+export const authenticateParticipant = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      res.status(400).json({ message: 'Informe o e-mail e o código de verificação.' });
+      return;
+    }
+
+    const participant = await authenticateParticipantByEmailAndCode({ email, code });
+
+    const token = jwt.sign(
+      { participantId: participant._id, email: participant.email || participant.primaryGuardianEmail } as ParticipantTokenPayload,
+      env.ADMIN_JWT_SECRET, // Reusing ADMIN_JWT_SECRET for now, should be a separate secret
+      { expiresIn: '1h' } // Token expires in 1 hour
+    );
+
+    res.json({
+      message: 'Login de participante bem-sucedido.',
+      token,
+      participant: {
+        id: participant._id,
+        firstName: participant.firstName,
+        fullName: ensureNames({ firstName: participant.firstName, secondName: participant.secondName }).fullName,
+        email: participant.email,
+        isChild: participant.isChild,
+        emailVerified: participant.emailVerified,
+        contactEmail: participant.email || participant.primaryGuardianEmail,
+      },
     });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });

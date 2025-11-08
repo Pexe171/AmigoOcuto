@@ -5,6 +5,7 @@ type ParticipantState = {
   firstName: string | null;
   isChild: boolean;
   contactEmail: string | null;
+  token: string | null;
 };
 
 type ParticipantContextValue = {
@@ -13,7 +14,7 @@ type ParticipantContextValue = {
   clearParticipant: () => void;
 };
 
-const defaultState: ParticipantState = { id: null, firstName: null, isChild: false, contactEmail: null };
+const defaultState: ParticipantState = { id: null, firstName: null, isChild: false, contactEmail: null, token: null };
 
 const ParticipantContext = createContext<ParticipantContextValue | undefined>(undefined);
 
@@ -29,7 +30,8 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
           id: parsed.id ?? null,
           firstName: parsed.firstName ?? null,
           isChild: parsed.isChild ?? false,
-          contactEmail: parsed.contactEmail ?? null
+          contactEmail: parsed.contactEmail ?? null,
+          token: parsed.token ?? null
         };
       } catch (error) {
         console.warn('Não foi possível restaurar o participante salvo', error);
@@ -39,7 +41,7 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
   });
 
   useEffect(() => {
-    if (participant.id) {
+    if (participant.id && participant.token) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(participant));
     } else {
       localStorage.removeItem(STORAGE_KEY);

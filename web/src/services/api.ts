@@ -30,3 +30,12 @@ export const extractErrorMessage = (error: unknown): string => {
   console.error('Erro inesperado:', error);
   return 'Ocorreu um erro inesperado. Tente novamente.';
 };
+
+export const adminLogin = async (email: string, password: string): Promise<{ token: string }> => {
+  try {
+    const response = await api.post('/admin/login', { email, password });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};

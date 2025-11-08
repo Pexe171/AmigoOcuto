@@ -3,13 +3,14 @@ import { Router } from 'express';
 import {
   updateGiftList,
   fetchGiftList,
-  updateGiftListByEmail,
-  fetchGiftListByEmail,
 } from '../controllers/giftListController';
+import { requireParticipantAuth } from '../middlewares/participantAuth';
 
 // { mergeParams: true } é importante para que esta rota
 // consiga aceder ao :participantId vindo do ficheiro server/src/app.ts
 const router = Router({ mergeParams: true });
+
+router.use(requireParticipantAuth);
 
 // PUT /api/participants/:participantId/gifts
 router.put('/', updateGiftList);
@@ -18,12 +19,3 @@ router.put('/', updateGiftList);
 router.get('/', fetchGiftList);
 
 export default router;
-
-// Rotas para buscar por email
-export const giftListByEmailRouter = Router();
-
-// PUT /api/participants/by-email/:email/gifts
-giftListByEmailRouter.put('/:email/gifts', updateGiftListByEmail);
-
-// GET /api/participants/by-email/:email/gifts
-giftListByEmailRouter.get('/:email/gifts', fetchGiftListByEmail);

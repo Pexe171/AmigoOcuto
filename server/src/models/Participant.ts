@@ -10,7 +10,6 @@ export interface VerificationInfo {
 export interface ParticipantDocument extends Document {
   firstName: string;
   secondName: string;
-  nickname?: string;
   email?: string;
   isChild: boolean;
   primaryGuardianEmail?: string;
@@ -34,7 +33,6 @@ const ParticipantSchema = new Schema<ParticipantDocument>(
   {
     firstName: { type: String, required: true },
     secondName: { type: String, required: true },
-    nickname: { type: String },
     email: {
       type: String,
       trim: true,

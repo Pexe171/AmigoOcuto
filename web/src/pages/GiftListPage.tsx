@@ -3,7 +3,7 @@ import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import FestiveCard from '../components/FestiveCard';
 import { api, extractErrorMessage } from '../services/api';
 import { useNotification } from '../hooks/useNotification';
@@ -42,7 +42,6 @@ const giftSchema = z.object({
 });
 
 const giftListSchema = z.object({
-  email: z.string().email('Informe um e-mail válido'),
   items: z.array(giftSchema).min(1, 'Adicione pelo menos um item').max(50)
 });
 
@@ -63,7 +62,6 @@ type ParticipantStatus = {
   firstName: string;
   secondName: string;
   fullName: string;
-  nickname?: string;
   email?: string;
   primaryGuardianEmail?: string;
   guardianEmails: string[];
@@ -74,62 +72,77 @@ type ParticipantStatus = {
   createdAt?: string;
 };
 
-const fetchGiftList = async (email: string): Promise<GiftResponse> => {
-  const response = await api.get(`/participants/by-email/${encodeURIComponent(email)}/gifts`);
-  return response.data as GiftResponse;
-};
-
-const fetchParticipantStatus = async (email: string): Promise<ParticipantStatus> => {
-  const response = await api.get(`/participants/by-email/${encodeURIComponent(email)}`);
-  return response.data as ParticipantStatus;
-};
-
 const GiftListPage: React.FC = () => {
-  const { participant } = useParticipant();
+  const { participant, clearParticipant } = useParticipant();
   const { notification, show, clear } = useNotification();
   const queryClient = useQueryClient();
-  const [loadingParticipantData, setLoadingParticipantData] = useState(false);
-  const [searchParams] = useSearchParams();
-  const emailFromQuery = searchParams.get('email');
+  const navigate = useNavigate();
+
+  const authHeaders = useMemo(() => (participant.token ? { Authorization: `Bearer ${participant.token}` } : {}), [participant.token]);
+  const axiosAuthConfig = useMemo(() => ({ headers: authHeaders }), [authHeaders]);
 
   const form = useForm<GiftListForm>({
     resolver: zodResolver(giftListSchema) as Resolver<GiftListForm>,
     defaultValues: {
-      email: emailFromQuery || participant.contactEmail || '',
       items: [{ name: '', description: '', url: '', priority: 'media', price: undefined }]
     }
   });
 
   const {
-    register,
     control,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors }
   } = form;
 
   const { fields, append, remove, replace } = useFieldArray({ control, name: 'items' });
-  const participantEmail = watch('email');
 
-  const giftListQuery = useQuery<GiftResponse, Error>({
-    queryKey: ['gift-list', participantEmail],
-    queryFn: async ({ queryKey }) => {
-      const [, email] = queryKey as [string, string];
-      return fetchGiftList(email);
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!participant.token) {
+      navigate('/login');
+    }
+  }, [participant.token, navigate]);
+
+  // Fetch participant status and gift list for the authenticated participant
+  const participantStatusQuery = useQuery<ParticipantStatus, Error>({
+    queryKey: ['participant-status', participant.id],
+    queryFn: async () => {
+      if (!participant.id) {
+        throw new Error('ID do participante não disponível.');
+      }
+      const response = await api.get(`/participants/${participant.id}`, axiosAuthConfig);
+      return response.data as ParticipantStatus;
     },
-    enabled: false,
-    retry: false
+    enabled: Boolean(participant.id && participant.token),
+    retry: false,
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearParticipant();
+        navigate('/login');
+      }
+      show('error', extractErrorMessage(error));
+    }
   });
 
-  const participantStatusQuery = useQuery<ParticipantStatus, Error>({
-    queryKey: ['participant-status', participantEmail],
-    queryFn: async ({ queryKey }) => {
-      const [, email] = queryKey as [string, string];
-      return fetchParticipantStatus(email);
+  const giftListQuery = useQuery<GiftResponse, Error>({
+    queryKey: ['gift-list', participant.id],
+    queryFn: async () => {
+      if (!participant.id) {
+        throw new Error('ID do participante não disponível.');
+      }
+      const response = await api.get(`/participants/${participant.id}/gifts`, axiosAuthConfig);
+      return response.data as GiftResponse;
     },
-    enabled: false,
-    retry: false
+    enabled: Boolean(participant.id && participant.token),
+    retry: false,
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearParticipant();
+        navigate('/login');
+      }
+      show('error', extractErrorMessage(error));
+    }
   });
 
   useEffect(() => {
@@ -154,7 +167,10 @@ const GiftListPage: React.FC = () => {
 
   const mutation = useMutation<GiftResponse, Error, GiftListForm>({
     mutationFn: async (data) => {
-      const response = await api.put(`/participants/by-email/${encodeURIComponent(data.email)}/gifts`, {
+      if (!participant.id) {
+        throw new Error('ID do participante não disponível.');
+      }
+      const response = await api.put(`/participants/${participant.id}/gifts`, {
         items: data.items.map((item) => ({
           name: item.name,
           description: item.description || undefined,
@@ -162,7 +178,7 @@ const GiftListPage: React.FC = () => {
           priority: item.priority,
           price: item.price || undefined
         }))
-      });
+      }, axiosAuthConfig);
       return response.data as GiftResponse;
     },
     onSuccess: (data) => {
@@ -177,85 +193,57 @@ const GiftListPage: React.FC = () => {
         }))
       );
     },
-    onError: (error) => show('error', extractErrorMessage(error))
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearParticipant();
+        navigate('/login');
+      }
+      show('error', extractErrorMessage(error));
+    }
   });
 
   const participantStatus = participantStatusQuery.data;
-  const contactEmail = useMemo(() => {
-    if (participantStatus?.contactEmail) {
-      return participantStatus.contactEmail;
-    }
-    return participant.contactEmail;
-  }, [participantStatus?.contactEmail, participant.contactEmail]);
 
-  const isFetchingData =
-    loadingParticipantData || giftListQuery.isFetching || participantStatusQuery.isFetching;
-
-  const refreshParticipantData = async (emailFromEvent?: string): Promise<void> => {
-    const rawEmail = emailFromEvent ?? participantEmail;
-    const trimmed = rawEmail.trim().toLowerCase();
-    if (!trimmed) {
-      show('error', 'Informe o e-mail para carregar os dados.');
-      return;
-    }
-    if (!trimmed.includes('@')) {
-      show('error', 'Informe um e-mail válido.');
-      return;
-    }
-    setValue('email', trimmed);
-    clear();
-    setLoadingParticipantData(true);
-    try {
-      const [status] = await Promise.all([
-        queryClient.fetchQuery({
-          queryKey: ['participant-status', trimmed],
-          queryFn: () => fetchParticipantStatus(trimmed),
-          staleTime: 0
-        }),
-        queryClient.fetchQuery({
-          queryKey: ['gift-list', trimmed],
-          queryFn: () => fetchGiftList(trimmed),
-          staleTime: 0
-        })
-      ]);
-      if (status) {
-        show('success', `Dados carregados para ${status.fullName}.`);
-      }
-    } catch (error) {
-      const errorMessage = extractErrorMessage(error);
-      // Melhorar mensagem quando o participante não for encontrado
-      if (errorMessage.includes('não encontrado') || errorMessage.includes('not found')) {
-        show('error', 'Participante não encontrado. Verifique se o e-mail está correto e se a inscrição foi confirmada.');
-      } else {
-        show('error', errorMessage);
-      }
-    } finally {
-      setLoadingParticipantData(false);
-    }
-  };
-
-  useEffect(() => {
-    const emailToUse = emailFromQuery || participant.contactEmail;
-    if (emailToUse) {
-      setValue('email', emailToUse);
-      void refreshParticipantData(emailToUse);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emailFromQuery, participant.contactEmail]);
+  const isFetchingData = giftListQuery.isFetching || participantStatusQuery.isFetching;
 
   const onSubmit = handleSubmit((data) => {
-    const trimmedEmail = data.email.trim().toLowerCase();
-    if (!trimmedEmail) {
-      show('error', 'Informe o e-mail para salvar a lista.');
-      return;
-    }
-    if (!trimmedEmail.includes('@')) {
-      show('error', 'Informe um e-mail válido.');
-      return;
-    }
     clear();
-    mutation.mutate({ ...data, email: trimmedEmail });
+    mutation.mutate(data);
   });
+
+  if (!participant.token) {
+    return null; // Or a loading spinner, as the redirect will happen in useEffect
+  }
+
+  if (participantStatusQuery.isLoading || giftListQuery.isLoading) {
+    return (
+      <FestiveCard title="Carregando sua lista..." eyebrow="🎄">
+        <p className="text-white/80 text-center">Aguarde enquanto buscamos seus dados.</p>
+      </FestiveCard>
+    );
+  }
+
+  if (participantStatusQuery.isError || giftListQuery.isError) {
+    return (
+      <FestiveCard title="Erro ao carregar lista" eyebrow="⚠️">
+        <p className="text-rose-200 text-center">Não foi possível carregar sua lista de presentes. Por favor, tente novamente mais tarde.</p>
+        <button onClick={() => navigate('/login')} className={primaryButtonClass}>
+          Fazer login novamente
+        </button>
+      </FestiveCard>
+    );
+  }
+
+  if (!participantStatus?.emailVerified) {
+    return (
+      <FestiveCard title="E-mail não verificado" eyebrow="⚠️">
+        <p className="text-white/80 text-center">Seu e-mail ainda não foi verificado. Por favor, verifique seu e-mail para acessar a lista de presentes.</p>
+        <button onClick={() => navigate('/confirmacao')} className={primaryButtonClass}>
+          Verificar e-mail
+        </button>
+      </FestiveCard>
+    );
+  }
 
   return (
     <FestiveCard
@@ -266,9 +254,6 @@ const GiftListPage: React.FC = () => {
           <p>
             Adicione quantos itens desejar, com detalhes e links para facilitar o presenteador. Sempre que salvar, o sorteio usa
             a versão atualizada.
-          </p>
-          <p className="text-sm text-white/70">
-            Informe o e-mail usado no cadastro para carregar sua lista de presentes.
           </p>
         </>
       }
@@ -282,13 +267,12 @@ const GiftListPage: React.FC = () => {
           {participantStatus ? (
             <div className="space-y-1">
               <p>
-                <strong>{participantStatus.fullName}</strong>{' '}
-                {participantStatus.nickname ? `(${participantStatus.nickname})` : ''} ·{' '}
+                <strong>{participantStatus.fullName}</strong> ·{' '}
                 {participantStatus.isChild ? 'Criança' : 'Adulto'}
               </p>
-              {contactEmail && (
+              {participantStatus.contactEmail && (
                 <p>
-                  E-mail principal para códigos: <strong>{contactEmail}</strong>
+                  E-mail principal para códigos: <strong>{participantStatus.contactEmail}</strong>
                 </p>
               )}
               {participantStatus.guardianEmails.length > 0 && (
@@ -307,48 +291,14 @@ const GiftListPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {participant.firstName ? (
-                <p>
-                  {participant.firstName}, informe o e-mail usado no cadastro para carregar sua lista.
-                </p>
-              ) : (
-                <p>Informe o e-mail usado no cadastro para identificar o participante.</p>
-              )}
+              <p>
+                Carregando dados do participante...
+              </p>
             </div>
           )}
         </div>
 
         <form onSubmit={onSubmit} className="space-y-8">
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-4">
-              <div className="flex-1 space-y-2">
-                <label htmlFor="email" className={labelClass}>
-                  E-mail do cadastro
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  {...register('email')}
-                  className={inputClass}
-                  placeholder="seu@email.com"
-                  onBlur={() => void refreshParticipantData()}
-                />
-                {errors.email && <p className="text-sm text-rose-200">{errors.email.message}</p>}
-              </div>
-              <button
-                type="button"
-                className={secondaryButtonClass}
-                onClick={() => void refreshParticipantData()}
-                disabled={isFetchingData}
-              >
-                {isFetchingData ? 'Carregando...' : 'Buscar dados'}
-              </button>
-            </div>
-            <p className="text-sm text-white/60">
-              Use o mesmo e-mail informado no cadastro. O e-mail é usado para identificar sua conta de forma segura.
-            </p>
-          </div>
-
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-white">Itens ({fields.length})</h3>
             <button
@@ -497,7 +447,7 @@ const GiftListPage: React.FC = () => {
 
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <span className="text-sm text-white/70">
-              {giftListQuery.isFetching || participantStatusQuery.isFetching
+              {isFetchingData
                 ? 'Carregando lista...'
                 : 'Salve sempre que fizer ajustes. O sorteio consulta a versão mais recente.'}
             </span>
@@ -512,4 +462,3 @@ const GiftListPage: React.FC = () => {
 };
 
 export default GiftListPage;
-

@@ -8,7 +8,6 @@ interface ParticipantData {
   _id: Types.ObjectId;
   firstName: string;
   secondName: string;
-  nickname?: string;
   email?: string;
   isChild: boolean;
   primaryGuardianEmail?: string;
@@ -29,7 +28,6 @@ export type AdminParticipantSummary = {
   firstName: string;
   secondName: string;
   fullName: string;
-  nickname?: string;
   email?: string;
   isChild: boolean;
   emailVerified: boolean;
@@ -44,7 +42,6 @@ export type AdminParticipantDetails = {
   firstName: string;
   secondName: string;
   fullName: string;
-  nickname?: string;
   email?: string;
   isChild: boolean;
   emailVerified: boolean;
@@ -83,9 +80,6 @@ export const listParticipantsWithGiftSummary = async (): Promise<AdminParticipan
       createdAt: participant.createdAt
     };
 
-    if (participant.nickname) {
-      summary.nickname = participant.nickname;
-    }
     if (participant.email) {
       summary.email = participant.email;
     }
@@ -126,9 +120,6 @@ export const getParticipantDetailsForAdmin = async (participantId: string): Prom
     updatedAt: participant.updatedAt
   };
 
-  if (participant.nickname) {
-    details.nickname = participant.nickname;
-  }
   if (participant.email) {
     details.email = participant.email;
   }

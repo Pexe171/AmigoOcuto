@@ -1,0 +1,34 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../Assinador"
+		},
+		{
+			"path": "../../../../../LunaWeb"
+		},
+		{
+			"path": "../../../../../PortJava"
+		},
+		{
+			"path": "../../../../../smtp"
+		},
+		{
+			"path": "C:/Users/caksj/Desktop/TESTE"
+		},
+		{
+			"path": "../../../../../Laura"
+		},
+		{
+			"path": "../../../../portifolio/portifolio"
+		},
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../../DavidStore"
+		}
+	],
+	"settings": {
+		"java.compile.nullAnalysis.mode": "automatic"
+	}
+}

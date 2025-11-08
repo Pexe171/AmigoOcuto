@@ -57,12 +57,20 @@ body {
 
 @keyframes fall {
   0% {
-    transform: translateY(0) translateX(0);
-    opacity: 0.6;
+    transform: translateY(-5vh) translateX(0vw);
+    opacity: 0.8;
+  }
+  25% {
+    transform: translateY(25vh) translateX(5vw);
+  }
+  50% {
+    transform: translateY(50vh) translateX(-5vw);
+  }
+  75% {
+    transform: translateY(75vh) translateX(5vw);
   }
   100% {
-    /* Move a neve 100vh (toda a altura) e um pouco para o lado */
-    transform: translateY(100vh) translateX(100px);
-    opacity: 0.1;
+    transform: translateY(105vh) translateX(0vw);
+    opacity: 0;
   }
 }

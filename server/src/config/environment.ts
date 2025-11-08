@@ -2,7 +2,8 @@
 import dotenv from 'dotenv';
 import { z, ZodIssueCode } from 'zod';
 
-dotenv.config();
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const envSchema = z
   .object({
@@ -18,7 +19,7 @@ const envSchema = z
     ADMIN_PASSWORD: z
       .string()
       .min(8, 'ADMIN_PASSWORD deve ter pelo menos 8 caracteres.')
-      .default('troque-esta-senha'),
+      .default('troque-esta-senha-segura'),
     ADMIN_JWT_SECRET: z
       .string()
       .min(16, 'ADMIN_JWT_SECRET deve ter pelo menos 16 caracteres.')

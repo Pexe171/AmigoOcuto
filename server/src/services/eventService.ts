@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Types } from 'mongoose';
+import { Types, Document } from 'mongoose';
 import { EventModel, EventDocument } from '../models/Event';
 import { ParticipantDocument } from '../models/Participant';
 import { TicketModel, TicketDocument } from '../models/Ticket';
@@ -30,7 +30,7 @@ const shuffle = <T>(input: T[]): T[] => {
   return arr;
 };
 
-const ensureNoSelfAssignment = <T>(participants: T[]): T[] => {
+const ensureNoSelfAssignment = <T extends Document>(participants: T[]): T[] => {
   if (participants.length < 2) {
     throw new Error('São necessários pelo menos dois participantes verificados para o sorteio.');
   }
@@ -39,7 +39,7 @@ const ensureNoSelfAssignment = <T>(participants: T[]): T[] => {
     const shuffled = shuffle(participants);
     let valid = true;
     for (let i = 0; i < participants.length; i += 1) {
-      if (participants[i] === shuffled[i]) {
+      if ((participants[i]!._id as Types.ObjectId).equals(shuffled[i]!._id as Types.ObjectId)) {
         valid = false;
         break;
       }

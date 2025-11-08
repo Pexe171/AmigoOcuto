@@ -28,7 +28,6 @@ const registrationSchema = z
       .trim()
       .min(3, 'Informe o nome completo')
       .max(120, 'O nome pode ter até 120 caracteres'),
-    nickname: z.string().optional(),
     email: z.string().email('Informe um e-mail válido').optional(),
     isChild: z.boolean(),
     primaryGuardianEmail: z.string().email('Informe um e-mail válido').optional(),
@@ -106,7 +105,6 @@ const RegistrationPage: React.FC = () => {
       try {
         const payload = {
           fullName: data.fullName,
-          nickname: data.nickname,
           email: data.isChild ? data.email || undefined : data.email,
           isChild: data.isChild,
           primaryGuardianEmail: data.isChild ? data.primaryGuardianEmail : undefined,
@@ -124,7 +122,6 @@ const RegistrationPage: React.FC = () => {
           isChild: data.isChild,
           guardians: [],
           fullName: '',
-          nickname: '',
           email: '',
           primaryGuardianEmail: ''
         });
@@ -197,19 +194,6 @@ const RegistrationPage: React.FC = () => {
           </label>
           <input id="fullName" {...register('fullName')} className={inputClass} placeholder="Digite o nome e sobrenome" />
           {errors.fullName && <p className="text-sm text-rose-200">{errors.fullName.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="nickname" className={labelClass}>
-            Apelido (opcional)
-          </label>
-          <input
-            id="nickname"
-            {...register('nickname')}
-            className={inputClass}
-            placeholder="Como prefere ser chamado"
-          />
-          {errors.nickname && <p className="text-sm text-rose-200">{errors.nickname.message}</p>}
         </div>
 
         <div className="flex flex-col gap-3 rounded-2xl border border-white/20 bg-black/25 p-5 text-white/85">

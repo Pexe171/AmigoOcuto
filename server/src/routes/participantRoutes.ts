@@ -8,6 +8,7 @@ import {
   searchParticipantsByName,
   getParticipantStatusByEmail,
   updateEmail,
+  authenticateParticipant,
 } from '../controllers/participantController';
 
 const router = Router();
@@ -17,6 +18,9 @@ router.post('/', createParticipant);
 
 // POST /api/participants/verify -> chama a função confirmParticipant
 router.post('/verify', confirmParticipant);
+
+// POST /api/participants/login -> autentica o participante e retorna um token
+router.post('/login', authenticateParticipant);
 
 // PUT /api/participants/update-email -> atualiza o email e reenvia código
 router.put('/update-email', updateEmail);

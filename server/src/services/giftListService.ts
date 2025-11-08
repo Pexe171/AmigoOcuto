@@ -63,31 +63,3 @@ export const getGiftItems = async (participantId: string): Promise<GiftItem[]> =
   const list = await getGiftList(participantId);
   return list?.items ?? [];
 };
-
-export const upsertGiftListByEmail = async (
-  email: string,
-  input: GiftListInput
-): Promise<GiftListDocument> => {
-  const participant = await getParticipantByEmailOrFail(email);
-  const data = giftListSchema.parse(input);
-
-  const giftList = await GiftListModel.findOneAndUpdate(
-    { participant: participant._id },
-    { items: data.items },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
-
-  return giftList;
-};
-
-export const getGiftListByEmail = async (email: string): Promise<GiftListDocument | null> => {
-  const participant = await getParticipantByEmailOrFail(email);
-  
-  try {
-    const giftList = await GiftListModel.findOne({ participant: participant._id }).exec();
-    return giftList;
-  } catch (error) {
-    console.error(`[DEBUG] Erro ao buscar lista de presentes para e-mail ${email}:`, error);
-    throw error;
-  }
-};

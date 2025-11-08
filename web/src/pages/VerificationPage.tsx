@@ -2,7 +2,7 @@
 import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'; // Added useSearchParams
 import FestiveCard from '../components/FestiveCard';
 import { api, extractErrorMessage } from '../services/api';
 import Notification from '../components/Notification';
@@ -10,8 +10,9 @@ import { useNotification } from '../hooks/useNotification';
 import { useParticipant } from '../context/ParticipantContext';
 import { inputClass, labelClass, primaryButtonClass, secondaryButtonClass, badgeClass } from '../styles/theme';
 
+// Updated schema to use email instead of participantId
 const verificationSchema = z.object({
-  participantId: z.string().min(1, 'Informe o ID da inscrição'),
+  email: z.string().email('Informe um e-mail válido.'),
   code: z
     .string()
     .min(6, 'O código possui 6 dígitos')
@@ -21,7 +22,7 @@ const verificationSchema = z.object({
 type VerificationForm = z.infer<typeof verificationSchema>;
 
 const updateEmailSchema = z.object({
-  participantId: z.string().min(1, 'Informe o ID da inscrição'),
+  // participantId is no longer needed here, as email is the primary identifier
   newEmail: z.string().email('Informe um e-mail válido.')
 });
 
@@ -35,15 +36,19 @@ const VerificationPage: React.FC = () => {
   const [updateEmailLoading, setUpdateEmailLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams(); // Hook to get query parameters
+  const initialEmail = searchParams.get('email') || ''; // Get email from URL
 
   const {
     register,
     handleSubmit,
+    setValue, // Added setValue to pre-fill email
     formState: { errors }
   } = useForm<VerificationForm>({
     resolver: zodResolver(verificationSchema) as Resolver<VerificationForm>,
     defaultValues: {
-      participantId: participant.id ?? ''
+      email: initialEmail, // Pre-fill email from URL
+      code: ''
     }
   });
 
@@ -51,40 +56,53 @@ const VerificationPage: React.FC = () => {
     register: registerUpdateEmail,
     handleSubmit: handleSubmitUpdateEmail,
     formState: { errors: updateEmailErrors },
-    reset: resetUpdateEmail
+    reset: resetUpdateEmail,
+    setValue: setUpdateEmailValue // Added setValue for update email form
   } = useForm<UpdateEmailForm>({
     resolver: zodResolver(updateEmailSchema) as Resolver<UpdateEmailForm>,
     defaultValues: {
-      participantId: participant.id ?? '',
-      newEmail: ''
+      newEmail: initialEmail // Pre-fill new email from URL
     }
   });
+
+  // Set email value if it changes in the URL or context
+  useEffect(() => {
+    if (initialEmail) {
+      setValue('email', initialEmail);
+      setUpdateEmailValue('newEmail', initialEmail);
+    } else if (participant.contactEmail) {
+      setValue('email', participant.contactEmail);
+      setUpdateEmailValue('newEmail', participant.contactEmail);
+    }
+  }, [initialEmail, participant.contactEmail, setValue, setUpdateEmailValue]);
+
 
   const onSubmit = handleSubmit(async (data) => {
     setLoading(true);
     clear();
     try {
+      // API call now sends email and code
       const response = await api.post('/participants/verify', {
-        participantId: data.participantId,
+        email: data.email,
         code: data.code
       });
-      const { message } = response.data as { message: string };
-      show('success', message ?? 'Inscrição confirmada com sucesso.');
+      const { message, token, participant: verifiedParticipant } = response.data as { message: string, token: string, participant: any }; // Assuming backend returns token and participant
       
-      // Redirecionar para a página de lista de presentes após confirmação bem-sucedida
-      // Usa o email do participante do contexto ou busca do status
-      const contactEmail = participant.contactEmail;
-      if (contactEmail) {
-        // Pequeno delay para mostrar a mensagem de sucesso
-        setTimeout(() => {
-          navigate(`/listas?email=${encodeURIComponent(contactEmail)}`);
-        }, 1500);
-      } else {
-        // Se não tiver email no contexto, redireciona sem parâmetro
-        setTimeout(() => {
-          navigate('/listas');
-        }, 1500);
-      }
+      // Update participant context with new token and verified status
+      setParticipant({
+        id: verifiedParticipant.id,
+        firstName: verifiedParticipant.firstName,
+        isChild: verifiedParticipant.isChild,
+        contactEmail: verifiedParticipant.email,
+        token: token,
+      });
+
+      show('success', message ?? 'E-mail confirmado com sucesso.');
+      
+      // Redirect to gift list page after successful confirmation
+      setTimeout(() => {
+        navigate('/listas');
+      }, 1500);
     } catch (error) {
       show('error', extractErrorMessage(error));
     } finally {
@@ -96,23 +114,27 @@ const VerificationPage: React.FC = () => {
     setUpdateEmailLoading(true);
     clear();
     try {
-      const response = await api.put('/participants/update-email', {
-        participantId: data.participantId,
+      // This endpoint needs to be created/modified on the backend
+      // It should receive the old email (from initialEmail or participant.contactEmail)
+      // and the new email, then update the participant's email and resend a code.
+      await api.put('/participants/update-email', {
+        oldEmail: initialEmail || participant.contactEmail, // Send old email for identification
         newEmail: data.newEmail
       });
-      const { message } = response.data as { message: string };
       
-      // Atualizar o contexto do participante com o novo email
+      // Update the email in the form and context
+      setValue('email', data.newEmail);
       setParticipant({
         id: participant.id,
         firstName: participant.firstName,
         isChild: participant.isChild,
-        contactEmail: data.newEmail
+        contactEmail: data.newEmail,
+        token: participant.token, // Keep existing token
       });
       
-      show('success', message ?? 'E-mail atualizado com sucesso. Verifique o novo endereço para o código de verificação.');
+      show('success', 'E-mail atualizado com sucesso. Verifique o novo endereço para o código de verificação.');
       setShowUpdateEmail(false);
-      resetUpdateEmail();
+      resetUpdateEmail({ newEmail: data.newEmail }); // Reset form with new email
     } catch (error) {
       show('error', extractErrorMessage(error));
     } finally {
@@ -128,9 +150,8 @@ const VerificationPage: React.FC = () => {
     }
   }, [location.pathname, location.state, navigate, show]);
 
-  const eyebrow = participant.contactEmail
-    ? `Código enviado para ${participant.contactEmail}`
-    : 'Confirmação obrigatória';
+  const displayEmail = initialEmail || participant.contactEmail || 'seu e-mail';
+  const eyebrow = `Código enviado para ${displayEmail}`;
 
   return (
     <FestiveCard
@@ -138,11 +159,9 @@ const VerificationPage: React.FC = () => {
       eyebrow={eyebrow}
       description={
         <>
-          <p>Informe o ID recebido na conclusão da inscrição e o código de 6 dígitos enviado por e-mail.</p>
+          <p>Informe o código de 6 dígitos enviado para <strong>{displayEmail}</strong>.</p>
           <p className="text-sm text-white/70">
-            {participant.id
-              ? 'Utilize o ID que mostramos ao final do cadastro. Se perdeu, refaça a inscrição para gerar um novo código.'
-              : 'Salve o ID exibido após o cadastro para retornar aqui rapidamente.'}
+            Se não encontrar o e-mail, verifique a caixa de spam.
           </p>
         </>
       }
@@ -152,18 +171,19 @@ const VerificationPage: React.FC = () => {
 
       <form onSubmit={onSubmit} className="space-y-8">
         <div className="space-y-2">
-          <label htmlFor="participantId" className={labelClass}>
-            ID da inscrição
+          <label htmlFor="email" className={labelClass}>
+            E-mail
           </label>
           <input
-            id="participantId"
-            {...register('participantId')}
+            id="email"
+            type="email"
+            {...register('email')}
             className={inputClass}
-            placeholder="Ex.: 65f3b2c1..."
-            autoComplete="off"
-            readOnly={!!(participant.id || participant.contactEmail)}
+            placeholder="seu@email.com"
+            autoComplete="email"
+            readOnly // Make email read-only as it comes from the previous step
           />
-          {errors.participantId && <p className="text-sm text-rose-200">{errors.participantId.message}</p>}
+          {errors.email && <p className="text-sm text-rose-200">{errors.email.message}</p>}
         </div>
 
         <div className="space-y-2">
@@ -185,15 +205,14 @@ const VerificationPage: React.FC = () => {
         <div className="flex flex-col items-start gap-3 text-sm text-white/70">
           <span className={badgeClass}>Dica</span>
           <p>
-            Se não encontrar o e-mail, verifique a caixa de spam ou{' '}
+            Não recebeu o código ou digitou o e-mail errado?{' '}
             <button
               type="button"
               onClick={() => setShowUpdateEmail(!showUpdateEmail)}
               className="underline hover:text-white transition"
             >
-              corrija o e-mail
+              Clique aqui para reenviar ou corrigir o e-mail.
             </button>
-            {' '}para receber um novo código.
           </p>
         </div>
 
@@ -201,23 +220,6 @@ const VerificationPage: React.FC = () => {
           <div className="p-6 bg-white/10 rounded-2xl border border-white/20 space-y-4">
             <h3 className="text-lg font-semibold text-white">Corrigir e-mail</h3>
             <form onSubmit={onUpdateEmail} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="updateEmail-participantId" className={labelClass}>
-                  ID da inscrição
-                </label>
-                <input
-                  id="updateEmail-participantId"
-                  {...registerUpdateEmail('participantId')}
-                  className={inputClass}
-                  placeholder="Ex.: 65f3b2c1..."
-                  autoComplete="off"
-                  readOnly={!!(participant.id || participant.contactEmail)}
-                />
-                {updateEmailErrors.participantId && (
-                  <p className="text-sm text-rose-200">{updateEmailErrors.participantId.message}</p>
-                )}
-              </div>
-
               <div className="space-y-2">
                 <label htmlFor="updateEmail-newEmail" className={labelClass}>
                   Novo e-mail

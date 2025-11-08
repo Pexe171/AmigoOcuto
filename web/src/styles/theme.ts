@@ -13,6 +13,8 @@ export const primaryButtonClass =
   'inline-flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-900/60 transition hover:bg-emerald-400 focus:outline-none focus:ring-4 focus:ring-emerald-400/50';
 export const secondaryButtonClass =
   'inline-flex items-center justify-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white/90 shadow hover:bg-white/20 focus:outline-none focus:ring-4 focus:ring-white/40';
+export const dangerButtonClass =
+  'inline-flex items-center justify-center gap-2 rounded-full bg-red-500/90 px-6 py-3 font-semibold text-white shadow-lg shadow-red-900/60 transition hover:bg-red-500 focus:outline-none focus:ring-4 focus:ring-red-400/50';
 export const ghostButtonClass =
   'inline-flex items-center justify-center gap-2 rounded-full border border-transparent px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 focus:outline-none focus:ring-4 focus:ring-white/30';
 export const badgeClass =
