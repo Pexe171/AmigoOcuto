@@ -99,7 +99,8 @@ npm --prefix web run build
 
 3. **Lista de presentes**
    - Clique em **Construir Lista** na página inicial (ou acesse diretamente `/login`). Primeiro informe o e-mail confirmado na inscrição para receber um código temporário e, em seguida, valide o código para entrar.
-   - Após o login, você será redirecionado para `/listas`, onde poderá adicionar, editar, marcar como comprado ou remover itens da sua lista em tempo real. Somente participantes com e-mail verificado têm a lista persistida na base oficial.
+   - Após o login, você será levado ao painel `/listas`, com indicadores de progresso, resumo do cadastro e atalhos para adicionar, marcar ou remover itens em tempo real. Somente participantes com e-mail verificado têm a lista persistida na base oficial.
+   - O e-mail automático que entrega o código informa claramente que se trata do acesso à lista de presentes e indica qual endereço recebeu a mensagem, facilitando a identificação pelos participantes.
 
 4. **Painel administrativo**
   - Em `/admin`, autentique-se com o e-mail e a senha configurados nas variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
