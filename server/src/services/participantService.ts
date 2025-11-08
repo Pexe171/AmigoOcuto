@@ -90,7 +90,7 @@ const registrationSchema = z
   });
 
 const verificationSchema = z.object({
-  participantId: z.string().regex(/^[0-9a-fA-F\-]{36}$/),
+  email: z.string().email(),
   code: z.string().length(6, 'O código de verificação deve ter 6 dígitos.'),
   attendingInPerson: z.boolean().optional(),
 });
@@ -206,14 +206,15 @@ export const verifyParticipant = async (
   input: z.infer<typeof verificationSchema>,
 ): Promise<Participant> => {
   const data = verificationSchema.parse(input);
+  const normalizedEmail = data.email.toLowerCase().trim();
 
-  const pending = findPendingParticipantById(data.participantId);
+  const pending = findPendingParticipantByEmailOrGuardianEmail(normalizedEmail);
   if (!pending) {
-    const already = findParticipantById(data.participantId);
+    const already = findParticipantByEmail(normalizedEmail);
     if (already && already.emailVerified) {
       throw new Error('Esta inscrição já foi confirmada anteriormente.');
     }
-    throw new Error('Inscrição não encontrada ou já verificada.');
+    throw new Error('Inscrição não encontrada ou já verificada. Verifique o e-mail informado.');
   }
 
   if (new Date(pending.expiresAt).getTime() < Date.now()) {
