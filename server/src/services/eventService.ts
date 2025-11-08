@@ -4,7 +4,7 @@ import { TicketModel, TicketDocument } from '../models/Ticket';
 import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
 import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
-import { getGiftList } from './giftListService';
+import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService';
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/);
 
 const eventSchema = z.object({
@@ -74,6 +74,23 @@ export const listEvents = async (): Promise<EventDocument[]> => {
   return EventModel.find().sort({ createdAt: -1 }).exec();
 };
 
+export const listActiveEventsForRegistration = async (): Promise<Array<{
+  id: string;
+  name: string;
+  status: EventDocument['status'];
+  participantCount: number;
+  createdAt: Date;
+}>> => {
+  const events = await EventModel.find({ status: 'ativo' }).sort({ createdAt: -1 }).lean();
+  return events.map((event) => ({
+    id: event._id.toString(),
+    name: event.name,
+    status: event.status,
+    participantCount: Array.isArray(event.participants) ? event.participants.length : 0,
+    createdAt: event.createdAt ?? new Date(),
+  }));
+};
+
 export const cancelEvent = async (eventId: string): Promise<EventDocument> => {
   const event = await EventModel.findById(eventId);
   if (!event) {
@@ -106,6 +123,23 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
 
   if (verifiedParticipants.length % 2 !== 0) {
     throw new Error('O sorteio exige um número par de participantes verificados.');
+  }
+
+  const participantIds = verifiedParticipants.map((participant) => participant.id);
+  const participantsWithoutLists = getParticipantsWithoutGiftItems(participantIds);
+
+  if (participantsWithoutLists.length > 0) {
+    const missingNames = verifiedParticipants
+      .filter((participant) => participantsWithoutLists.includes(participant.id))
+      .map((participant) => `${participant.firstName} ${participant.secondName}`.trim());
+    const formattedNames = missingNames.length > 1
+      ? `${missingNames.slice(0, -1).join(', ')} e ${missingNames.slice(-1)}`
+      : missingNames[0] ?? '';
+    const subject = missingNames.length > 1 ? 'os participantes' : 'o participante';
+    const verb = missingNames.length > 1 ? 'não cadastraram' : 'não cadastrou';
+    throw new Error(
+      `Não é possível realizar o sorteio porque ${subject} ${formattedNames} ${verb} a lista de presentes. Peça para preencher antes de tentar novamente.`,
+    );
   }
 
   const assignments = ensureNoSelfAssignment<Participant>(verifiedParticipants);

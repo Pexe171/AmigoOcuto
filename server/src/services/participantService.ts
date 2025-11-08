@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sendVerificationEmail, ParticipantContact, buildGuardianList } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
 import { ensureNames } from '../utils/nameUtils';
+import { EventModel } from '../models/Event';
 import {
   findParticipantById,
   findParticipantByEmail,
@@ -34,6 +35,7 @@ export interface Participant {
   verificationCodeHash?: string;
   verificationExpiresAt?: string;
   attendingInPerson?: boolean;
+  preferredEventId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +49,7 @@ export interface PendingParticipant {
   primaryGuardianEmail?: string;
   guardianEmails?: string[];
   attendingInPerson?: boolean;
+  preferredEventId?: string | null;
   verificationCodeHash: string;
   expiresAt: string;
   createdAt: string;
@@ -80,6 +83,10 @@ const registrationSchema = z
     primaryGuardianEmail: z.string().email().optional(),
     guardianEmails: z.array(z.string().email()).optional(),
     attendingInPerson: z.boolean().optional(),
+    eventId: z
+      .union([z.string().trim().regex(/^[0-9a-fA-F]{24}$/), z.literal('')])
+      .optional()
+      .transform((value) => (value && value.length > 0 ? value : undefined)),
   })
   .superRefine((data, ctx) => {
     if (!data.fullName && (!data.firstName || !data.secondName)) {
@@ -129,6 +136,18 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
     throw new Error('Informe o nome completo.');
   }
 
+  let preferredEventId: string | undefined;
+  if (data.eventId) {
+    const event = await EventModel.findById(data.eventId).lean();
+    if (!event) {
+      throw new Error('O evento selecionado não foi encontrado.');
+    }
+    if (event.status !== 'ativo') {
+      throw new Error('O evento selecionado não está aceitando novas inscrições.');
+    }
+    preferredEventId = event._id.toString();
+  }
+
   if (data.isChild) {
     if (!data.primaryGuardianEmail) {
       throw new Error('CrianÃ§as precisam de um e-mail principal de responsÃ¡vel.');
@@ -169,6 +188,10 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
 
   if (typeof data.attendingInPerson === 'boolean') {
     pendingParticipantToInsert.attendingInPerson = data.attendingInPerson;
+  }
+
+  if (preferredEventId) {
+    pendingParticipantToInsert.preferredEventId = preferredEventId;
   }
 
   if (data.isChild) {
@@ -243,6 +266,9 @@ export const requestVerificationCodeByEmail = async (
     }
     if (typeof participant.attendingInPerson === 'boolean') {
       pendingInsert.attendingInPerson = participant.attendingInPerson;
+    }
+    if (participant.preferredEventId) {
+      pendingInsert.preferredEventId = participant.preferredEventId;
     }
     insertPendingParticipant(pendingInsert);
   } else {
@@ -333,6 +359,10 @@ export const verifyParticipant = async (
     participantToInsert.attendingInPerson = pending.attendingInPerson;
   }
 
+  if (pending.preferredEventId) {
+    participantToInsert.preferredEventId = pending.preferredEventId;
+  }
+
   let verifiedParticipant: Participant;
   const existingUnverifiedParticipant = findParticipantByEmail(normalizedEmail);
 
@@ -348,6 +378,13 @@ export const verifyParticipant = async (
   }
 
   deletePendingParticipant(pending.id);
+
+  if (pending.preferredEventId) {
+    await EventModel.updateOne(
+      { _id: pending.preferredEventId, status: 'ativo' },
+      { $addToSet: { participants: participantToInsert.id ?? verifiedParticipant.id } }
+    );
+  }
 
   return verifiedParticipant;
 };
@@ -539,6 +576,10 @@ export const authenticateParticipantByEmailAndCode = async (
     participantToInsert.attendingInPerson = pending.attendingInPerson;
   }
 
+  if (pending.preferredEventId) {
+    participantToInsert.preferredEventId = pending.preferredEventId;
+  }
+
   let verifiedParticipant: Participant;
   const existingUnverifiedParticipant = findParticipantByEmail(normalizedEmail);
 
@@ -553,6 +594,13 @@ export const authenticateParticipantByEmailAndCode = async (
     verifiedParticipant = insertParticipant(participantToInsert);
   }
   deletePendingParticipant(pending.id);
+
+  if (pending.preferredEventId) {
+    await EventModel.updateOne(
+      { _id: pending.preferredEventId, status: 'ativo' },
+      { $addToSet: { participants: participantToInsert.id ?? verifiedParticipant.id } }
+    );
+  }
 
   return verifiedParticipant;
 };

@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 // Helper to convert SQLite row to Participant interface
 const rowToParticipant = (row: any): Participant | null => {
   if (!row) return null;
-  return {
+  const participant: Participant = {
     id: row.id,
     firstName: row.firstName,
     secondName: row.secondName,
@@ -16,16 +16,25 @@ const rowToParticipant = (row: any): Participant | null => {
     emailVerified: Boolean(row.emailVerified),
     verificationCodeHash: row.verificationCodeHash,
     verificationExpiresAt: row.verificationExpiresAt,
-    attendingInPerson: Boolean(row.attendingInPerson),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+
+  if (row.attendingInPerson !== null && row.attendingInPerson !== undefined) {
+    participant.attendingInPerson = Boolean(row.attendingInPerson);
+  }
+
+  if (row.preferredEventId) {
+    participant.preferredEventId = row.preferredEventId;
+  }
+
+  return participant;
 };
 
 // Helper to convert SQLite row to PendingParticipant interface
 const rowToPendingParticipant = (row: any): PendingParticipant | null => {
   if (!row || !row.id) return null; // Add check for row.id
-  return {
+  const pending: PendingParticipant = {
     id: row.id,
     email: row.email,
     firstName: row.firstName,
@@ -33,12 +42,21 @@ const rowToPendingParticipant = (row: any): PendingParticipant | null => {
     isChild: Boolean(row.isChild),
     primaryGuardianEmail: row.primaryGuardianEmail,
     guardianEmails: row.guardianEmails ? JSON.parse(row.guardianEmails) : [],
-    attendingInPerson: Boolean(row.attendingInPerson),
     verificationCodeHash: row.verificationCodeHash,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+
+  if (row.attendingInPerson !== null && row.attendingInPerson !== undefined) {
+    pending.attendingInPerson = Boolean(row.attendingInPerson);
+  }
+
+  if (row.preferredEventId) {
+    pending.preferredEventId = row.preferredEventId;
+  }
+
+  return pending;
 };
 
 // --- Participant Repository Functions ---
@@ -81,8 +99,8 @@ export const insertParticipant = (
     INSERT INTO participants (
       id, firstName, secondName, email, isChild, primaryGuardianEmail,
       guardianEmails, emailVerified, verificationCodeHash, verificationExpiresAt,
-      attendingInPerson, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      attendingInPerson, preferredEventId, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     newId,
@@ -96,6 +114,7 @@ export const insertParticipant = (
     participant.verificationCodeHash,
     participant.verificationExpiresAt,
     participant.attendingInPerson ? 1 : 0,
+    participant.preferredEventId ?? null,
     createdAt,
     updatedAt
   );
@@ -191,8 +210,8 @@ export const insertPendingParticipant = (pendingParticipant: Omit<PendingPartici
   const stmt = db.prepare(`
     INSERT INTO pendingParticipants (
       id, email, firstName, secondName, isChild, primaryGuardianEmail, guardianEmails,
-      attendingInPerson, verificationCodeHash, expiresAt, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      attendingInPerson, preferredEventId, verificationCodeHash, expiresAt, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     newId,
@@ -203,6 +222,7 @@ export const insertPendingParticipant = (pendingParticipant: Omit<PendingPartici
     pendingParticipant.primaryGuardianEmail,
     pendingParticipant.guardianEmails ? JSON.stringify(pendingParticipant.guardianEmails) : null,
     pendingParticipant.attendingInPerson ? 1 : 0,
+    pendingParticipant.preferredEventId ?? null,
     pendingParticipant.verificationCodeHash,
     pendingParticipant.expiresAt,
     now,
