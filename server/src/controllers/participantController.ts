@@ -1,7 +1,5 @@
 // Este ficheiro deve estar em server/src/controllers/participantController.ts
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
-import { Participant, PendingParticipant } from '../services/participantService';
 import {
   registerParticipant,
   verifyParticipant,
@@ -13,6 +11,45 @@ import {
 } from '../services/participantService';
 import { ensureNames } from '../utils/nameUtils';
 
+const resolveParticipantId = (participant: { id?: string; _id?: unknown }): string => {
+  if (participant.id) {
+    return participant.id;
+  }
+
+  const rawId = (participant as { _id?: unknown })._id;
+  if (typeof rawId === 'string') {
+    return rawId;
+  }
+
+  if (rawId && typeof (rawId as { toString?: () => string }).toString === 'function') {
+    return (rawId as { toString: () => string }).toString();
+  }
+
+  throw new Error('Participante sem identificador válido.');
+};
+
+const extractGuardianEmails = (participant: { guardianEmails?: unknown }): string[] => {
+  const { guardianEmails } = participant as { guardianEmails?: unknown };
+  if (Array.isArray(guardianEmails)) {
+    return guardianEmails.filter((email): email is string => typeof email === 'string');
+  }
+
+  if (typeof guardianEmails === 'string' && guardianEmails.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(guardianEmails);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((email): email is string => typeof email === 'string');
+      }
+    } catch (error) {
+      console.warn('Não foi possível converter guardianEmails armazenados como string JSON.', error);
+      return [guardianEmails];
+    }
+    return [guardianEmails];
+  }
+
+  return [];
+};
+
 // Esta função é chamada quando fazes POST /api/participants
 export const createParticipant = async (
   req: Request,
@@ -20,9 +57,9 @@ export const createParticipant = async (
 ): Promise<void> => {
   try {
     // 1. Tenta registar o participante (aqui é que o email é disparado)
-    const participant: PendingParticipantDocument = await registerParticipant(req.body);
+    const participant = await registerParticipant(req.body);
     res.status(201).json({
-      id: participant._id,
+      id: resolveParticipantId(participant),
       message:
         'Inscrição criada com sucesso. Verifique o e-mail informado para confirmar a participação.',
     });
@@ -42,9 +79,9 @@ export const confirmParticipant = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const participant: ParticipantDocument = await verifyParticipant(req.body);
+    const participant = await verifyParticipant(req.body);
     res.json({
-      id: participant._id,
+      id: resolveParticipantId(participant),
       emailVerified: participant.emailVerified,
       message: 'E-mail confirmado com sucesso. Prepare a sua lista de presentes!',
     });
@@ -85,8 +122,9 @@ export const getParticipantStatus = async (
   }
   try {
     const participant = await getParticipantOrFail(id);
+    const guardianEmails = extractGuardianEmails(participant);
     const contactEmail = participant.isChild
-      ? participant.primaryGuardianEmail ?? participant.guardianEmails[0] ?? null
+      ? participant.primaryGuardianEmail ?? guardianEmails[0] ?? null
       : participant.email ?? null;
     const names = ensureNames({
       firstName: participant.firstName,
@@ -94,7 +132,7 @@ export const getParticipantStatus = async (
     });
 
     res.json({
-      id: participant._id,
+      id: resolveParticipantId(participant),
       firstName: participant.firstName,
       secondName: participant.secondName,
       fullName: names.fullName,
@@ -102,7 +140,7 @@ export const getParticipantStatus = async (
       isChild: participant.isChild,
       email: participant.email,
       primaryGuardianEmail: participant.primaryGuardianEmail,
-      guardianEmails: participant.guardianEmails ?? [],
+      guardianEmails,
       attendingInPerson: participant.attendingInPerson,
       contactEmail,
       createdAt: participant.createdAt,
@@ -129,7 +167,7 @@ export const searchParticipantsByName = async (req: Request, res: Response): Pro
         });
 
         return {
-          id: participant._id,
+          id: resolveParticipantId(participant),
           firstName: participant.firstName,
           secondName: participant.secondName,
           fullName: names.fullName,
@@ -154,8 +192,9 @@ export const getParticipantStatusByEmail = async (
   }
   try {
     const participant = await getParticipantByEmailOrFail(email);
+    const guardianEmails = extractGuardianEmails(participant);
     const contactEmail = participant.isChild
-      ? participant.primaryGuardianEmail ?? participant.guardianEmails[0] ?? null
+      ? participant.primaryGuardianEmail ?? guardianEmails[0] ?? null
       : participant.email ?? null;
     const names = ensureNames({
       firstName: participant.firstName,
@@ -163,7 +202,7 @@ export const getParticipantStatusByEmail = async (
     });
 
     res.json({
-      id: participant._id,
+      id: resolveParticipantId(participant),
       firstName: participant.firstName,
       secondName: participant.secondName,
       fullName: names.fullName,
@@ -171,7 +210,7 @@ export const getParticipantStatusByEmail = async (
       isChild: participant.isChild,
       email: participant.email,
       primaryGuardianEmail: participant.primaryGuardianEmail,
-      guardianEmails: participant.guardianEmails ?? [],
+      guardianEmails,
       attendingInPerson: participant.attendingInPerson,
       contactEmail,
       createdAt: participant.createdAt,
@@ -219,8 +258,11 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
 
     const participant = await authenticateParticipantByEmailAndCode({ email, code });
 
+    const guardianEmails = extractGuardianEmails(participant);
+    const participantId = resolveParticipantId(participant);
+
     const token = jwt.sign(
-      { participantId: participant._id, email: participant.email || participant.primaryGuardianEmail } as ParticipantTokenPayload,
+      { participantId, email: participant.email || participant.primaryGuardianEmail } as ParticipantTokenPayload,
       env.ADMIN_JWT_SECRET, // Reusing ADMIN_JWT_SECRET for now, should be a separate secret
       { expiresIn: '1h' } // Token expires in 1 hour
     );
@@ -229,13 +271,13 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
       message: 'Login de participante bem-sucedido.',
       token,
       participant: {
-        id: participant._id,
+        id: participantId,
         firstName: participant.firstName,
         fullName: ensureNames({ firstName: participant.firstName, secondName: participant.secondName }).fullName,
         email: participant.email,
         isChild: participant.isChild,
         emailVerified: participant.emailVerified,
-        contactEmail: participant.email || participant.primaryGuardianEmail,
+        contactEmail: participant.email || participant.primaryGuardianEmail || guardianEmails[0] || null,
       },
     });
   } catch (error) {
