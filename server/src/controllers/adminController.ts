@@ -4,6 +4,7 @@ import { env } from '../config/environment';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
 import {
+  deleteParticipantForAdmin,
   getParticipantDetailsForAdmin,
   listParticipantsWithGiftSummary,
   sendTestEmailsToAllParticipants
@@ -74,8 +75,12 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
 };
 
 export const listParticipants = async (_req: Request, res: Response): Promise<void> => {
-  const participants = await listParticipantsWithGiftSummary();
-  res.json(participants);
+  try {
+    const participants = await listParticipantsWithGiftSummary();
+    res.json(participants);
+  } catch (error) {
+    res.status(500).json({ message: (error as Error).message });
+  }
 };
 
 export const getParticipantDetails = async (req: Request, res: Response): Promise<void> => {
@@ -87,6 +92,23 @@ export const getParticipantDetails = async (req: Request, res: Response): Promis
   try {
     const details = await getParticipantDetailsForAdmin(participantId);
     res.json(details);
+  } catch (error) {
+    res.status(404).json({ message: (error as Error).message });
+  }
+};
+
+export const deleteParticipant = (req: Request, res: Response): void => {
+  const { participantId } = req.params;
+  if (!participantId) {
+    res.status(400).json({ message: 'Informe o identificador do participante.' });
+    return;
+  }
+  try {
+    const removed = deleteParticipantForAdmin(participantId);
+    res.json({
+      message: 'Participante removido com sucesso.',
+      participant: removed,
+    });
   } catch (error) {
     res.status(404).json({ message: (error as Error).message });
   }

@@ -1,27 +1,37 @@
-import { Types } from 'mongoose';
-import { ParticipantModel } from '../models/Participant';
-import { GiftListModel, GiftItem } from '../models/GiftList';
 import { collectParticipantRecipients, sendTestEmailToParticipant } from './emailService';
 import { ensureNames } from '../utils/nameUtils';
+import {
+  findAllParticipants,
+  findParticipantById,
+  deleteParticipant as removeParticipantRecord,
+} from '../database/participantRepository';
+import {
+  findGiftListByParticipantId,
+  findGiftListsByParticipantIds,
+  deleteGiftListByParticipantId,
+  GiftItem,
+} from '../database/giftListRepository';
+import { listVerifiedParticipants } from './participantService';
 
-interface ParticipantData {
-  _id: Types.ObjectId;
-  firstName: string;
-  secondName: string;
-  email?: string;
-  isChild: boolean;
-  primaryGuardianEmail?: string;
-  guardianEmails: string[];
-  emailVerified: boolean;
-  attendingInPerson?: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface GiftListData {
-  participant: Types.ObjectId;
-  items: GiftItem[];
-}
+const collectContactEmails = (
+  email?: string | null,
+  primaryGuardianEmail?: string | null,
+  guardianEmails: string[] = [],
+): string[] => {
+  const unique = new Set<string>();
+  if (email) {
+    unique.add(email);
+  }
+  if (primaryGuardianEmail) {
+    unique.add(primaryGuardianEmail);
+  }
+  guardianEmails.forEach((guardianEmail) => {
+    if (guardianEmail) {
+      unique.add(guardianEmail);
+    }
+  });
+  return Array.from(unique);
+};
 
 export type AdminParticipantSummary = {
   id: string;
@@ -33,8 +43,9 @@ export type AdminParticipantSummary = {
   emailVerified: boolean;
   attendingInPerson?: boolean;
   primaryGuardianEmail?: string;
+  contactEmails: string[];
   giftCount: number;
-  createdAt: Date;
+  createdAt: string;
 };
 
 export type AdminParticipantDetails = {
@@ -48,19 +59,25 @@ export type AdminParticipantDetails = {
   attendingInPerson?: boolean;
   primaryGuardianEmail?: string;
   guardianEmails: string[];
+  contactEmails: string[];
   gifts: GiftItem[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminRemovedParticipant = {
+  id: string;
+  fullName: string;
 };
 
 export const listParticipantsWithGiftSummary = async (): Promise<AdminParticipantSummary[]> => {
-  const participants = await ParticipantModel.find().sort({ createdAt: 1 }).lean<ParticipantData[]>();
-  const participantIds = participants.map((participant) => participant._id);
-  const giftLists = await GiftListModel.find({ participant: { $in: participantIds } }).lean<GiftListData[]>();
+  const participants = findAllParticipants().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const participantIds = participants.map((participant) => participant.id);
+  const giftLists = findGiftListsByParticipantIds(participantIds);
   const giftMap = new Map<string, GiftItem[]>();
 
   giftLists.forEach((list) => {
-    giftMap.set(list.participant.toString(), list.items);
+    giftMap.set(list.participantId, list.items);
   });
 
   return participants.map((participant) => {
@@ -69,15 +86,22 @@ export const listParticipantsWithGiftSummary = async (): Promise<AdminParticipan
       secondName: participant.secondName,
     });
 
+    const contactEmails = collectContactEmails(
+      participant.email,
+      participant.primaryGuardianEmail,
+      participant.guardianEmails ?? [],
+    );
+
     const summary: AdminParticipantSummary = {
-      id: participant._id.toString(),
+      id: participant.id,
       firstName: participant.firstName,
       secondName: participant.secondName,
       fullName: names.fullName,
       isChild: participant.isChild,
       emailVerified: participant.emailVerified,
-      giftCount: giftMap.get(participant._id.toString())?.length ?? 0,
-      createdAt: participant.createdAt
+      contactEmails,
+      giftCount: giftMap.get(participant.id)?.length ?? 0,
+      createdAt: participant.createdAt,
     };
 
     if (participant.email) {
@@ -94,30 +118,39 @@ export const listParticipantsWithGiftSummary = async (): Promise<AdminParticipan
   });
 };
 
-export const getParticipantDetailsForAdmin = async (participantId: string): Promise<AdminParticipantDetails> => {
-  const participant = await ParticipantModel.findById(participantId).lean<ParticipantData | null>();
+export const getParticipantDetailsForAdmin = async (
+  participantId: string,
+): Promise<AdminParticipantDetails> => {
+  const participant = findParticipantById(participantId);
   if (!participant) {
     throw new Error('Participante não encontrado.');
   }
 
-  const giftList = await GiftListModel.findOne({ participant: participant._id }).lean<GiftListData | null>();
-
+  const giftList = findGiftListByParticipantId(participant.id);
   const names = ensureNames({
     firstName: participant.firstName,
     secondName: participant.secondName,
   });
 
+  const guardianEmails = participant.guardianEmails ?? [];
+  const contactEmails = collectContactEmails(
+    participant.email,
+    participant.primaryGuardianEmail,
+    guardianEmails,
+  );
+
   const details: AdminParticipantDetails = {
-    id: participant._id.toString(),
+    id: participant.id,
     firstName: participant.firstName,
     secondName: participant.secondName,
     fullName: names.fullName,
     isChild: participant.isChild,
     emailVerified: participant.emailVerified,
-    guardianEmails: participant.guardianEmails,
+    guardianEmails,
+    contactEmails,
     gifts: giftList?.items ?? [],
     createdAt: participant.createdAt,
-    updatedAt: participant.updatedAt
+    updatedAt: participant.updatedAt,
   };
 
   if (participant.email) {
@@ -133,19 +166,58 @@ export const getParticipantDetailsForAdmin = async (participantId: string): Prom
   return details;
 };
 
-export const sendTestEmailsToAllParticipants = async (): Promise<{ participants: number; recipients: number }> => {
-  const participants = await ParticipantModel.find({ emailVerified: true }).exec();
+export const deleteParticipantForAdmin = (participantId: string): AdminRemovedParticipant => {
+  const participant = findParticipantById(participantId);
+  if (!participant) {
+    throw new Error('Participante não encontrado.');
+  }
+
+  const names = ensureNames({
+    firstName: participant.firstName,
+    secondName: participant.secondName,
+  });
+
+  deleteGiftListByParticipantId(participantId);
+  removeParticipantRecord(participantId);
+
+  return { id: participantId, fullName: names.fullName };
+};
+
+export const sendTestEmailsToAllParticipants = async (): Promise<{
+  participants: number;
+  recipients: number;
+}> => {
+  const verifiedParticipants = await listVerifiedParticipants();
   let participantsNotified = 0;
   let totalRecipients = 0;
 
-  for (const participant of participants) {
-    const recipients = collectParticipantRecipients(participant);
+  for (const participant of verifiedParticipants) {
+    const recipients = collectParticipantRecipients({
+      isChild: participant.isChild,
+      email: participant.email ?? null,
+      primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+      guardianEmails: participant.guardianEmails ?? [],
+    });
+
     if (recipients.length === 0) {
       continue;
     }
+
     participantsNotified += 1;
     totalRecipients += recipients.length;
-    await sendTestEmailToParticipant(participant, recipients);
+
+    await sendTestEmailToParticipant(
+      {
+        id: participant.id,
+        firstName: participant.firstName,
+        secondName: participant.secondName,
+        isChild: participant.isChild,
+        email: participant.email ?? null,
+        primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+        guardianEmails: participant.guardianEmails ?? [],
+      },
+      recipients,
+    );
   }
 
   return { participants: participantsNotified, recipients: totalRecipients };
