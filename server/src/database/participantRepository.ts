@@ -55,6 +55,12 @@ export const findParticipantByEmail = (email: string): Participant | null => {
   return rowToParticipant(row);
 };
 
+export const findParticipantByPrimaryEmail = (email: string): Participant | null => {
+  const stmt = db.prepare('SELECT * FROM participants WHERE email = ?');
+  const row = stmt.get(email);
+  return rowToParticipant(row);
+};
+
 export const insertParticipant = (
   participant: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'> & {
     id?: string;
