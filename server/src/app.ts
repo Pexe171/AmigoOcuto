@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import participantRoutes from './routes/participantRoutes';
 import adminRoutes from './routes/adminRoutes';
 import giftListRoutes from './routes/giftListRoutes';
+import eventRoutes from './routes/eventRoutes';
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get('/health', (_req, res) => {
 
 // Rotas mais específicas primeiro
 app.use('/api/gift-lists', giftListRoutes); // Changed base path
+app.use('/api/events', eventRoutes);
 app.use('/api/participants', participantRoutes);
 app.use('/api/admin', adminRoutes);
 

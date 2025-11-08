@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, useFieldArray, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,6 +21,14 @@ const guardianSchema = z.object({
   email: z.string().email('Informe um e-mail válido')
 });
 
+type EventOption = {
+  id: string;
+  name: string;
+  status: string;
+  participantCount: number;
+  createdAt?: string;
+};
+
 const registrationSchema = z
   .object({
     fullName: z
@@ -32,6 +40,10 @@ const registrationSchema = z
     isChild: z.boolean(),
     primaryGuardianEmail: z.string().email('Informe um e-mail válido').optional(),
     guardians: z.array(guardianSchema).default([]),
+    eventId: z
+      .union([z.string().trim().regex(/^[0-9a-fA-F]{24}$/), z.literal('')])
+      .optional()
+      .transform((value) => (value && value.length > 0 ? value : undefined)),
   })
   .superRefine((data, ctx) => {
     if (data.isChild) {
@@ -65,6 +77,9 @@ const RegistrationPage: React.FC = () => {
   const [recentRegistration, setRecentRegistration] = useState<{ id: string; fullName: string; contactEmail: string | null } | null>(
     null
   );
+  const [availableEvents, setAvailableEvents] = useState<EventOption[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const { notification, show, clear } = useNotification();
   const { setParticipant } = useParticipant();
   const navigate = useNavigate();
@@ -80,7 +95,8 @@ const RegistrationPage: React.FC = () => {
     resolver: zodResolver(registrationSchema) as Resolver<RegistrationForm>,
     defaultValues: {
       isChild: false,
-      guardians: []
+      guardians: [],
+      eventId: undefined,
     }
   });
 
@@ -97,13 +113,50 @@ const RegistrationPage: React.FC = () => {
     return first ?? '';
   }, [fullNameValue]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadEvents = async (): Promise<void> => {
+      setEventsLoading(true);
+      setEventsError(null);
+      try {
+        const response = await api.get('/events');
+        if (!isMounted) {
+          return;
+        }
+        const events = (response.data as EventOption[]).map((event) => ({
+          id: event.id,
+          name: event.name,
+          status: event.status,
+          participantCount: event.participantCount ?? 0,
+        }));
+        setAvailableEvents(events);
+      } catch (error) {
+        if (isMounted) {
+          console.error('Erro ao carregar eventos disponíveis:', error);
+          setEventsError('Não foi possível carregar as festas disponíveis agora. Tente novamente mais tarde.');
+        }
+      } finally {
+        if (isMounted) {
+          setEventsLoading(false);
+        }
+      }
+    };
+
+    void loadEvents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const onSubmit = handleSubmit(
     async (data) => {
       console.log('Formulário submetido com dados:', data);
       setLoading(true);
       clear();
       try {
-        const payload = {
+        const payload: Record<string, unknown> = {
           fullName: data.fullName,
           email: data.isChild ? data.email || undefined : data.email,
           isChild: data.isChild,
@@ -112,6 +165,10 @@ const RegistrationPage: React.FC = () => {
             ? [data.primaryGuardianEmail!, ...data.guardians.map(({ email }: { email: string }) => email)].filter(Boolean)
             : undefined
         };
+
+        if (data.eventId) {
+          payload.eventId = data.eventId;
+        }
 
         const response = await api.post('/participants', payload);
         const { id, message } = response.data as { id: string; message: string };
@@ -130,7 +187,8 @@ const RegistrationPage: React.FC = () => {
           guardians: [],
           fullName: '',
           email: '',
-          primaryGuardianEmail: ''
+          primaryGuardianEmail: '',
+          eventId: undefined,
         });
         // Redirecionar automaticamente para a página de verificação do código
         const successMessage = contactEmail
@@ -202,6 +260,36 @@ const RegistrationPage: React.FC = () => {
           <input id="fullName" {...register('fullName')} className={inputClass} placeholder="Digite o nome e sobrenome" />
           {errors.fullName && <p className="text-sm text-rose-200">{errors.fullName.message}</p>}
         </div>
+
+        {!eventsLoading && availableEvents.length > 0 && (
+          <div className="space-y-2">
+            <label htmlFor="eventId" className={labelClass}>
+              Escolha a festa (opcional)
+            </label>
+            <select id="eventId" {...register('eventId')} defaultValue="" className={inputClass}>
+              <option value="">Quero participar de qualquer festa disponível</option>
+              {availableEvents.map((event) => {
+                const participantLabel = event.participantCount === 1
+                  ? '1 participante confirmado'
+                  : `${event.participantCount} participantes confirmados`;
+                return (
+                  <option key={event.id} value={event.id}>
+                    {event.name} · {participantLabel}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="text-sm text-white/70">
+              Se preferir, deixe em branco e nossa equipe encaixa você automaticamente.
+            </p>
+          </div>
+        )}
+
+        {eventsError && (
+          <p className="text-sm text-rose-200">
+            {eventsError}
+          </p>
+        )}
 
         <div className="flex flex-col gap-3 rounded-2xl border border-white/20 bg-black/25 p-5 text-white/85">
           <label htmlFor="isChild" className="flex items-start gap-4">

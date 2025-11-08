@@ -32,6 +32,7 @@ function initializeDatabase() {
             verificationCodeHash TEXT,
             verificationExpiresAt DATETIME,
             attendingInPerson BOOLEAN,
+            preferredEventId TEXT,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -75,12 +76,23 @@ function initializeDatabase() {
             primaryGuardianEmail TEXT,
             guardianEmails TEXT, -- Stored as JSON string (array of emails)
             attendingInPerson BOOLEAN,
+            preferredEventId TEXT,
             verificationCodeHash TEXT NOT NULL,
             expiresAt DATETIME NOT NULL,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
         );
     `);
+
+    const participantsColumns = db.prepare('PRAGMA table_info(participants)').all() as { name: string }[];
+    if (!participantsColumns.some((column) => column.name === 'preferredEventId')) {
+        db.exec('ALTER TABLE participants ADD COLUMN preferredEventId TEXT');
+    }
+
+    const pendingColumns = db.prepare('PRAGMA table_info(pendingParticipants)').all() as { name: string }[];
+    if (!pendingColumns.some((column) => column.name === 'preferredEventId')) {
+        db.exec('ALTER TABLE pendingParticipants ADD COLUMN preferredEventId TEXT');
+    }
 
     // Create Tickets table
     db.exec(`
