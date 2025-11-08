@@ -39,6 +39,24 @@ export const findGiftListByParticipantId = (participantId: string): GiftList | n
   }
 };
 
+export const findGiftListsByParticipantIds = (participantIds: string[]): GiftList[] => {
+  if (participantIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = participantIds.map(() => '?').join(',');
+  try {
+    const stmt = db.prepare(`SELECT * FROM giftLists WHERE participantId IN (${placeholders})`);
+    return stmt
+      .all(...participantIds)
+      .map(rowToGiftList)
+      .filter((list): list is GiftList => list !== null);
+  } catch (error) {
+    console.error(`Error in findGiftListsByParticipantIds for participantIds ${participantIds.join(', ')}:`, error);
+    throw error;
+  }
+};
+
 export const createGiftList = (participantId: string): GiftList => {
   const newId = randomUUID();
   const now = new Date().toISOString();
@@ -71,6 +89,16 @@ export const updateGiftList = (participantId: string, items: GiftItem[]): GiftLi
     return findGiftListByParticipantId(participantId);
   } catch (error) {
     console.error(`Error in updateGiftList for participantId ${participantId}:`, error);
+    throw error;
+  }
+};
+
+export const deleteGiftListByParticipantId = (participantId: string): void => {
+  try {
+    const stmt = db.prepare('DELETE FROM giftLists WHERE participantId = ?');
+    stmt.run(participantId);
+  } catch (error) {
+    console.error(`Error in deleteGiftListByParticipantId for participantId ${participantId}:`, error);
     throw error;
   }
 };

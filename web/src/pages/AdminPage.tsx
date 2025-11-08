@@ -45,15 +45,17 @@ type ParticipantSummary = {
   emailVerified: boolean;
   attendingInPerson?: boolean;
   primaryGuardianEmail?: string;
+  contactEmails: string[];
   giftCount: number;
   createdAt: string;
 };
 
 type GiftItem = {
+  id: string;
   name: string;
-  description?: string;
   url?: string;
-  priority?: 'alta' | 'media' | 'baixa';
+  notes?: string;
+  purchased: boolean;
 };
 
 type ParticipantDetail = {
@@ -67,6 +69,7 @@ type ParticipantDetail = {
   attendingInPerson?: boolean;
   primaryGuardianEmail?: string;
   guardianEmails: string[];
+  contactEmails: string[];
   gifts: GiftItem[];
   createdAt: string;
   updatedAt: string;
@@ -88,6 +91,7 @@ const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+  const [participantBeingDeleted, setParticipantBeingDeleted] = useState<string | null>(null);
 
   const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const axiosAuthConfig = useMemo(() => ({ headers: authHeaders }), [authHeaders]);
@@ -167,6 +171,31 @@ const AdminPage: React.FC = () => {
     },
     enabled: isAuthenticated && Boolean(selectedParticipantId),
     refetchOnWindowFocus: false
+  });
+
+  const deleteParticipantMutation = useMutation<{ message: string }, unknown, { participantId: string; participantName: string }>
+  ({
+    mutationFn: async ({ participantId }) => {
+      const response = await api.delete(`/admin/participants/${participantId}`, axiosAuthConfig);
+      return response.data as { message: string };
+    },
+    onSuccess: (_data, variables) => {
+      show('success', `Participante "${variables.participantName}" removido.`);
+      if (selectedParticipantId === variables.participantId) {
+        setSelectedParticipantId(null);
+      }
+      void participantsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+        return;
+      }
+      show('error', extractErrorMessage(error));
+    },
+    onSettled: () => {
+      setParticipantBeingDeleted(null);
+    }
   });
 
   const drawEventMutation = useMutation<DrawResult, unknown, string>({
@@ -297,6 +326,25 @@ const AdminPage: React.FC = () => {
   const history: EventHistory | undefined = historyQuery.data;
   const selectedParticipant: ParticipantDetail | null = participantDetailsQuery.data ?? null;
 
+  const participantStats = useMemo(() => {
+    const total = participants.length;
+    const verified = participants.filter((participant) => participant.emailVerified).length;
+    const totalEmails = participants.reduce((sum, participant) => sum + participant.contactEmails.length, 0);
+    const attendingInPerson = participants.filter((participant) => participant.attendingInPerson).length;
+    return { total, verified, totalEmails, attendingInPerson };
+  }, [participants]);
+
+  const handleDeleteParticipant = (participant: ParticipantSummary): void => {
+    const confirmation = window.confirm(
+      `Tem certeza que deseja remover "${participant.fullName}" da lista de participantes confirmados?`
+    );
+    if (!confirmation) {
+      return;
+    }
+    setParticipantBeingDeleted(participant.id);
+    deleteParticipantMutation.mutate({ participantId: participant.id, participantName: participant.fullName });
+  };
+
   const getDrawButtonState = (event: EventSummary): { disabled: boolean; reason?: string } => {
     if (event.status !== 'ativo') {
       return { disabled: true, reason: 'Sorteios só podem ser feitos em eventos ativos.' };
@@ -374,6 +422,28 @@ const AdminPage: React.FC = () => {
                 {participantsQuery.isFetching ? 'Atualizando...' : 'Atualizar'}
               </button>
             </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-white/15 bg-black/20 p-4 text-white/80">
+                <p className="text-xs uppercase tracking-[0.25em] text-white/50">Participantes</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{participantStats.total}</p>
+                <p className="text-xs text-white/60">Com inscrição confirmada</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-black/20 p-4 text-white/80">
+                <p className="text-xs uppercase tracking-[0.25em] text-white/50">E-mails cadastrados</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{participantStats.totalEmails}</p>
+                <p className="text-xs text-white/60">Soma de todos os contatos</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-black/20 p-4 text-white/80">
+                <p className="text-xs uppercase tracking-[0.25em] text-white/50">Verificados</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{participantStats.verified}</p>
+                <p className="text-xs text-white/60">Com e-mail validado</p>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-black/20 p-4 text-white/80">
+                <p className="text-xs uppercase tracking-[0.25em] text-white/50">Presenciais</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{participantStats.attendingInPerson}</p>
+                <p className="text-xs text-white/60">Confirmaram presença física</p>
+              </div>
+            </div>
             {participantsQuery.isLoading ? (
               <p className="text-white/80">Carregando participantes...</p>
             ) : participants.length > 0 ? (
@@ -382,7 +452,7 @@ const AdminPage: React.FC = () => {
                   <thead className="uppercase text-xs tracking-[0.25em] text-white/60">
                     <tr>
                       <th className="px-4 py-3">Nome</th>
-                      <th className="px-4 py-3">E-mail</th>
+                      <th className="px-4 py-3">Contatos</th>
                       <th className="px-4 py-3">Tipo</th>
                       <th className="px-4 py-3">Presença</th>
                       <th className="px-4 py-3">Itens</th>
@@ -394,7 +464,19 @@ const AdminPage: React.FC = () => {
                     {participants.map((participantSummary) => (
                       <tr key={participantSummary.id}>
                         <td className="px-4 py-3">{participantSummary.fullName}</td>
-                        <td className="px-4 py-3">{participantSummary.email ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          {participantSummary.contactEmails.length === 0 ? (
+                            '—'
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              {participantSummary.contactEmails.map((contact) => (
+                                <span key={`${participantSummary.id}-${contact}`} className="text-xs text-white/70">
+                                  {contact}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 capitalize">{participantSummary.isChild ? 'Criança' : 'Adulto'}</td>
                         <td className="px-4 py-3">
                           {participantSummary.attendingInPerson ? 'Presencial' : 'Remoto/indefinido'}
@@ -411,6 +493,20 @@ const AdminPage: React.FC = () => {
                               onClick={() => setSelectedParticipantId(participantSummary.id)}
                             >
                               Ver detalhes
+                            </button>
+                            <button
+                              type="button"
+                              className={dangerButtonClass}
+                              onClick={() => handleDeleteParticipant(participantSummary)}
+                              disabled={
+                                deleteParticipantMutation.isPending &&
+                                participantBeingDeleted === participantSummary.id
+                              }
+                            >
+                              {deleteParticipantMutation.isPending &&
+                              participantBeingDeleted === participantSummary.id
+                                ? 'Removendo...'
+                                : 'Remover'}
                             </button>
                           </div>
                         </td>
@@ -448,6 +544,11 @@ const AdminPage: React.FC = () => {
                       Tipo: {selectedParticipant.isChild ? 'Criança' : 'Adulto'} · Presença:{' '}
                       {selectedParticipant.attendingInPerson ? 'Confirmada no encontro presencial' : 'Remota ou indefinida'}
                     </p>
+                    {selectedParticipant.contactEmails.length > 0 && (
+                      <p className="text-sm text-white/70">
+                        Contatos notificados: {selectedParticipant.contactEmails.join(', ')}
+                      </p>
+                    )}
                     {selectedParticipant.primaryGuardianEmail && (
                       <p className="text-sm text-white/70">
                         Responsável principal: {selectedParticipant.primaryGuardianEmail}
@@ -467,12 +568,9 @@ const AdminPage: React.FC = () => {
                     ) : (
                       <ul className="mt-3 space-y-3">
                         {selectedParticipant.gifts.map((gift, index) => (
-                          <li key={`${gift.name}-${index}`} className="rounded-2xl bg-black/25 px-4 py-3">
-                            <p className="font-semibold text-white">
-                              {gift.name}
-                              {gift.priority ? ` · prioridade ${gift.priority}` : ''}
-                            </p>
-                            {gift.description && <p className="text-sm text-white/70">{gift.description}</p>}
+                          <li key={gift.id ?? `${gift.name}-${index}`} className="rounded-2xl bg-black/25 px-4 py-3">
+                            <p className="font-semibold text-white">{gift.name}</p>
+                            {gift.notes && <p className="text-sm text-white/70">{gift.notes}</p>}
                             {gift.url && (
                               <a
                                 href={gift.url}

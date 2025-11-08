@@ -8,6 +8,7 @@ import {
   getHistory,
   listParticipants,
   getParticipantDetails,
+  deleteParticipant,
   triggerTestEmails
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
@@ -18,6 +19,7 @@ router.post('/login', authenticateAdmin);
 router.use(requireAdmin);
 router.get('/participants', listParticipants);
 router.get('/participants/:participantId', getParticipantDetails);
+router.delete('/participants/:participantId', deleteParticipant);
 router.post('/emails/test', triggerTestEmails);
 router.post('/events', createNewEvent);
 router.get('/events', listAllEvents);
