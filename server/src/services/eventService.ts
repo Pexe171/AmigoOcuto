@@ -1,9 +1,8 @@
 import { z } from 'zod';
-import { Types, Document } from 'mongoose';
+import { Types } from 'mongoose';
 import { EventModel, EventDocument } from '../models/Event';
-import { ParticipantDocument } from '../models/Participant';
 import { TicketModel, TicketDocument } from '../models/Ticket';
-import { listVerifiedParticipants, getParticipantOrFail } from './participantService';
+import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
 import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftItems } from './giftListService';
@@ -30,7 +29,7 @@ const shuffle = <T>(input: T[]): T[] => {
   return arr;
 };
 
-const ensureNoSelfAssignment = <T extends Document>(participants: T[]): T[] => {
+const ensureNoSelfAssignment = (participants: Participant[]): Participant[] => {
   if (participants.length < 2) {
     throw new Error('São necessários pelo menos dois participantes verificados para o sorteio.');
   }
@@ -39,7 +38,7 @@ const ensureNoSelfAssignment = <T extends Document>(participants: T[]): T[] => {
     const shuffled = shuffle(participants);
     let valid = true;
     for (let i = 0; i < participants.length; i += 1) {
-      if ((participants[i]!._id as Types.ObjectId).equals(shuffled[i]!._id as Types.ObjectId)) {
+      if (participants[i]!.id === shuffled[i]!.id) {
         valid = false;
         break;
       }
@@ -111,7 +110,7 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     throw new Error('O sorteio exige um número par de participantes verificados.');
   }
 
-  const assignments = ensureNoSelfAssignment<ParticipantDocument>(verifiedParticipants);
+  const assignments = ensureNoSelfAssignment(verifiedParticipants);
 
   const tickets: TicketDocument[] = [];
 
@@ -122,8 +121,8 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
 
     const ticket = new TicketModel({
       event: event._id,
-      participant: participant._id,
-      assignedParticipant: assigned._id,
+      participant: new Types.ObjectId(participant.id),
+      assignedParticipant: new Types.ObjectId(assigned.id),
       ticketCode
     });
 

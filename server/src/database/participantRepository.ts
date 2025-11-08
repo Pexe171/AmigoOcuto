@@ -1,9 +1,9 @@
+import { randomBytes } from 'crypto';
 import db from '../config/sqliteDatabase';
-import { Participant, PendingParticipant } from '../services/participantService'; // Assuming these interfaces are defined there
-import { v4 as uuidv4 } from 'uuid';
+import { Participant, PendingParticipant } from '../services/participantService';
 
 // Helper to convert SQLite row to Participant interface
-const rowToParticipant = (row: any): Participant => {
+const rowToParticipant = (row: any): Participant | null => {
   if (!row) return null;
   return {
     id: row.id,
@@ -23,7 +23,7 @@ const rowToParticipant = (row: any): Participant => {
 };
 
 // Helper to convert SQLite row to PendingParticipant interface
-const rowToPendingParticipant = (row: any): PendingParticipant => {
+const rowToPendingParticipant = (row: any): PendingParticipant | null => {
   if (!row) return null;
   return {
     id: row.id,
@@ -55,8 +55,10 @@ export const findParticipantByEmail = (email: string): Participant | null => {
   return rowToParticipant(row);
 };
 
-export const insertParticipant = (participant: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'>): Participant => {
-  const newId = uuidv4();
+const generateId = (): string => randomBytes(12).toString('hex');
+
+export const insertParticipant = (participant: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'>): Participant | null => {
+  const newId = generateId();
   const now = new Date().toISOString();
   const stmt = db.prepare(`
     INSERT INTO participants (
@@ -88,16 +90,17 @@ export const updateParticipant = (id: string, updates: Partial<Participant>): Pa
   const setClauses: string[] = [];
   const params: any[] = [];
 
-  for (const key in updates) {
-    if (updates.hasOwnProperty(key) && key !== 'id' && key !== 'createdAt') {
-      setClauses.push(`${key} = ?`);
-      if (key === 'isChild' || key === 'emailVerified' || key === 'attendingInPerson') {
-        params.push(updates[key] ? 1 : 0);
-      } else if (key === 'guardianEmails') {
-        params.push(updates[key] ? JSON.stringify(updates[key]) : null);
-      } else {
-        params.push(updates[key]);
-      }
+  for (const [key, value] of Object.entries(updates)) {
+    if (['id', 'createdAt'].includes(key)) {
+      continue;
+    }
+    setClauses.push(`${key} = ?`);
+    if (['isChild', 'emailVerified', 'attendingInPerson'].includes(key)) {
+      params.push(value ? 1 : 0);
+    } else if (key === 'guardianEmails') {
+      params.push(value ? JSON.stringify(value) : null);
+    } else {
+      params.push(value);
     }
   }
   setClauses.push('updatedAt = ?');
@@ -120,12 +123,16 @@ export const deleteParticipant = (id: string): void => {
 
 export const countParticipants = (): number => {
   const stmt = db.prepare('SELECT COUNT(*) FROM participants');
-  return stmt.get()['COUNT(*)'];
+  const row = stmt.get() as { 'COUNT(*)': number } | undefined;
+  return row ? row['COUNT(*)'] : 0;
 };
 
 export const findAllParticipants = (): Participant[] => {
   const stmt = db.prepare('SELECT * FROM participants');
-  return stmt.all().map(rowToParticipant);
+  return stmt
+    .all()
+    .map(rowToParticipant)
+    .filter((participant): participant is Participant => participant !== null);
 };
 
 export const searchParticipantsByNameAndEmail = (term: string): Participant[] => {
@@ -137,7 +144,10 @@ export const searchParticipantsByNameAndEmail = (term: string): Participant[] =>
     ORDER BY firstName, secondName
     LIMIT 15
   `);
-  return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm).map(rowToParticipant);
+  return stmt
+    .all(searchTerm, searchTerm, searchTerm, searchTerm)
+    .map(rowToParticipant)
+    .filter((participant): participant is Participant => participant !== null);
 };
 
 // --- PendingParticipant Repository Functions ---
@@ -154,8 +164,10 @@ export const findPendingParticipantByEmail = (email: string): PendingParticipant
   return rowToPendingParticipant(row);
 };
 
-export const insertPendingParticipant = (pendingParticipant: Omit<PendingParticipant, 'id' | 'createdAt' | 'updatedAt'>): PendingParticipant => {
-  const newId = uuidv4();
+export const insertPendingParticipant = (
+  pendingParticipant: Omit<PendingParticipant, 'id' | 'createdAt' | 'updatedAt'>
+): PendingParticipant | null => {
+  const newId = generateId();
   const now = new Date().toISOString();
   const stmt = db.prepare(`
     INSERT INTO pendingParticipants (
@@ -185,11 +197,12 @@ export const updatePendingParticipant = (id: string, updates: Partial<PendingPar
   const setClauses: string[] = [];
   const params: any[] = [];
 
-  for (const key in updates) {
-    if (updates.hasOwnProperty(key) && key !== 'id' && key !== 'createdAt') {
-      setClauses.push(`${key} = ?`);
-      params.push(updates[key]);
+  for (const [key, value] of Object.entries(updates)) {
+    if (['id', 'createdAt'].includes(key)) {
+      continue;
     }
+    setClauses.push(`${key} = ?`);
+    params.push(value);
   }
   setClauses.push('updatedAt = ?');
   params.push(now);
@@ -216,11 +229,19 @@ export const deletePendingParticipantsByEmail = (email: string): void => {
 
 export const countPendingParticipants = (): number => {
   const stmt = db.prepare('SELECT COUNT(*) FROM pendingParticipants');
-  return stmt.get()['COUNT(*)'];
+  const row = stmt.get() as { 'COUNT(*)': number } | undefined;
+  return row ? row['COUNT(*)'] : 0;
 };
 
 export const findPendingParticipantByEmailOrGuardianEmail = (email: string): PendingParticipant | null => {
-  const stmt = db.prepare('SELECT * FROM pendingParticipants WHERE email = ?');
-  const row = stmt.get(email);
+  const stmt = db.prepare(`
+    SELECT * FROM pendingParticipants
+    WHERE email = ?
+      OR primaryGuardianEmail = ?
+      OR (guardianEmails IS NOT NULL AND guardianEmails LIKE ?)
+    LIMIT 1
+  `);
+  const pattern = `%"${email}"%`;
+  const row = stmt.get(email, email, pattern);
   return rowToPendingParticipant(row);
 };
