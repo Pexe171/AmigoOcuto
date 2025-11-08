@@ -58,6 +58,7 @@ const ParticipantLoginPage: React.FC = () => {
         isChild: participant.isChild,
         contactEmail: participant.contactEmail ?? null,
         token: token,
+        giftListAuthToken: null,
       });
 
       show('success', `Bem-vindo(a), ${participant.firstName}!`);

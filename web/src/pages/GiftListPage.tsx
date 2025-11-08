@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import FestiveCard from '../components/FestiveCard';
 import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
@@ -16,7 +17,7 @@ interface GiftItem {
 }
 
 const GiftListPage: React.FC = () => {
-  const { participant, setParticipant } = useParticipant();
+  const { participant, clearParticipant } = useParticipant();
   const { notification, show, clear } = useNotification();
   const navigate = useNavigate();
   const [giftList, setGiftList] = useState<GiftItem[]>([]);
@@ -52,7 +53,11 @@ const GiftListPage: React.FC = () => {
     } catch (error) {
       show('error', extractErrorMessage(error));
       // If token is invalid or expired, force logout
-      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      if (
+        axios.isAxiosError(error) &&
+        error.response &&
+        (error.response.status === 401 || error.response.status === 403)
+      ) {
         handleLogout();
       }
     } finally {
@@ -127,7 +132,7 @@ const GiftListPage: React.FC = () => {
   };
 
   const handleLogout = () => {
-    setParticipant({ id: null, firstName: null, isChild: false, contactEmail: null, token: null });
+    clearParticipant();
     navigate('/participant-login');
     show('info', 'Você foi desconectado.');
   };
