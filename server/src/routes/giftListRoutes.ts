@@ -1,21 +1,19 @@
 // Este ficheiro deve estar em server/src/routes/giftListRoutes.ts
 import { Router } from 'express';
 import {
-  updateGiftList,
-  fetchGiftList,
+  getParticipantGiftList, // Changed from fetchGiftList
+  updateParticipantGiftList, // Changed from updateGiftList
 } from '../controllers/giftListController';
 import { requireParticipantAuth } from '../middlewares/participantAuth';
 
-// { mergeParams: true } é importante para que esta rota
-// consiga aceder ao :participantId vindo do ficheiro server/src/app.ts
-const router = Router({ mergeParams: true });
+const router = Router(); // Removed { mergeParams: true } as we'll define full paths here
 
-router.use(requireParticipantAuth);
+router.use(requireParticipantAuth); // Apply auth middleware to all routes in this router
 
-// PUT /api/participants/:participantId/gifts
-router.put('/', updateGiftList);
+// GET /api/gift-lists/:participantId
+router.get('/:participantId', getParticipantGiftList);
 
-// GET /api/participants/:participantId/gifts
-router.get('/', fetchGiftList);
+// PUT /api/gift-lists/:participantId
+router.put('/:participantId', updateParticipantGiftList);
 
 export default router;

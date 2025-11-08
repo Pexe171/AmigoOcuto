@@ -4,8 +4,7 @@ import { TicketModel, TicketDocument } from '../models/Ticket';
 import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
 import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
-import { getGiftItems } from './giftListService';
-
+import { getGiftList } from './giftListService';
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/);
 
 const eventSchema = z.object({
@@ -128,7 +127,9 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     await ticket.save();
     tickets.push(ticket);
 
-    const gifts = await getGiftItems(assigned.id);
+    const giftList = getGiftList(assigned.id);
+    const gifts = giftList ? giftList.items : []; // Extract items from the gift list
+
     await sendDrawEmail(
       {
         id: participant.id,

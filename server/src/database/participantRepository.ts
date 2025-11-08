@@ -24,7 +24,7 @@ const rowToParticipant = (row: any): Participant | null => {
 
 // Helper to convert SQLite row to PendingParticipant interface
 const rowToPendingParticipant = (row: any): PendingParticipant | null => {
-  if (!row) return null;
+  if (!row || !row.id) return null; // Add check for row.id
   return {
     id: row.id,
     email: row.email,
@@ -50,9 +50,15 @@ export const findParticipantById = (id: string): Participant | null => {
 };
 
 export const findParticipantByEmail = (email: string): Participant | null => {
-  const stmt = db.prepare('SELECT * FROM participants WHERE email = ? OR primaryGuardianEmail = ?');
-  const row = stmt.get(email, email);
-  return rowToParticipant(row);
+  try {
+    const stmt = db.prepare('SELECT * FROM participants WHERE email = ? OR primaryGuardianEmail = ?');
+    const row = stmt.get(email, email);
+    console.log(`[DEBUG] findParticipantByEmail for email ${email}:`, row); // Added debug log
+    return rowToParticipant(row);
+  } catch (error) {
+    console.error(`Error in findParticipantByEmail for email ${email}:`, error);
+    throw error;
+  }
 };
 
 export const findParticipantByPrimaryEmail = (email: string): Participant | null => {
@@ -257,7 +263,12 @@ export const countPendingParticipants = (): number => {
 };
 
 export const findPendingParticipantByEmailOrGuardianEmail = (email: string): PendingParticipant | null => {
-  const stmt = db.prepare('SELECT * FROM pendingParticipants WHERE email = ? OR primaryGuardianEmail = ?');
-  const row = stmt.get(email, email);
-  return rowToPendingParticipant(row);
+  try {
+    const stmt = db.prepare('SELECT * FROM pendingParticipants WHERE email = ? OR primaryGuardianEmail = ?');
+    const row = stmt.get(email, email);
+    return rowToPendingParticipant(row);
+  } catch (error) {
+    console.error(`Error in findPendingParticipantByEmailOrGuardianEmail for email ${email}:`, error);
+    throw error;
+  }
 };

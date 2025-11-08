@@ -19,6 +19,7 @@ import {
   deletePendingParticipantsByEmail,
   countPendingParticipants,
   findPendingParticipantByEmailOrGuardianEmail,
+  updateParticipant,
 } from '../database/participantRepository';
 
 export interface Participant {
@@ -272,15 +273,18 @@ export const verifyParticipant = async (
 ): Promise<Participant> => {
   const data = verificationSchema.parse(input);
   const normalizedEmail = data.email.toLowerCase().trim();
-
-  const pending = findPendingParticipantByEmailOrGuardianEmail(normalizedEmail);
-  if (!pending) {
+  const pendingResult = findPendingParticipantByEmailOrGuardianEmail(normalizedEmail);
+  if (!pendingResult) {
     const already = findParticipantByEmail(normalizedEmail);
     if (already && already.emailVerified) {
       throw new Error('Esta inscriÃ§Ã£o jÃ¡ foi confirmada anteriormente.');
     }
     throw new Error('InscriÃ§Ã£o nÃ£o encontrada ou jÃ¡ verificada. Verifique o e-mail informado.');
   }
+
+  const pending: PendingParticipant = pendingResult; // Explicitly assert type here
+  console.log(`[DEBUG] verifyParticipant - pending object:`, pending);
+  console.log(`[DEBUG] verifyParticipant - pending.id:`, pending.id);
 
   if (new Date(pending.expiresAt).getTime() < Date.now()) {
     throw new Error('O cÃ³digo de verificaÃ§Ã£o expirou. Solicite um novo.');
@@ -289,6 +293,12 @@ export const verifyParticipant = async (
   const isValidCode = await bcrypt.compare(data.code, pending.verificationCodeHash);
   if (!isValidCode) {
     throw new Error('CÃ³digo invÃ¡lido. Confira o e-mail enviado.');
+  }
+
+  const existingVerifiedParticipant = findParticipantByEmail(normalizedEmail);
+  if (existingVerifiedParticipant && existingVerifiedParticipant.emailVerified) {
+    deletePendingParticipant(pending.id);
+    return existingVerifiedParticipant;
   }
 
   const participantToInsert: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'> & {
@@ -323,10 +333,23 @@ export const verifyParticipant = async (
     participantToInsert.attendingInPerson = pending.attendingInPerson;
   }
 
-  const participant = insertParticipant(participantToInsert);
+  let verifiedParticipant: Participant;
+  const existingUnverifiedParticipant = findParticipantByEmail(normalizedEmail);
+
+  if (existingUnverifiedParticipant && !existingUnverifiedParticipant.emailVerified) {
+    // Update existing unverified participant
+    verifiedParticipant = updateParticipant(existingUnverifiedParticipant.id, {
+      ...participantToInsert,
+      emailVerified: true,
+    }) as Participant;
+  } else {
+    // Insert new participant
+    verifiedParticipant = insertParticipant(participantToInsert);
+  }
+
   deletePendingParticipant(pending.id);
 
-  return participant;
+  return verifiedParticipant;
 };
 
 export const resendVerificationCode = async (participantId: string): Promise<void> => {
@@ -516,7 +539,19 @@ export const authenticateParticipantByEmailAndCode = async (
     participantToInsert.attendingInPerson = pending.attendingInPerson;
   }
 
-  const verifiedParticipant = insertParticipant(participantToInsert);
+  let verifiedParticipant: Participant;
+  const existingUnverifiedParticipant = findParticipantByEmail(normalizedEmail);
+
+  if (existingUnverifiedParticipant && !existingUnverifiedParticipant.emailVerified) {
+    // Update existing unverified participant
+    verifiedParticipant = updateParticipant(existingUnverifiedParticipant.id, {
+      ...participantToInsert,
+      emailVerified: true,
+    }) as Participant;
+  } else {
+    // Insert new participant
+    verifiedParticipant = insertParticipant(participantToInsert);
+  }
   deletePendingParticipant(pending.id);
 
   return verifiedParticipant;

@@ -86,22 +86,26 @@ const VerificationPage: React.FC = () => {
         email: data.email,
         code: data.code
       });
-      const { message, token, participant: verifiedParticipant } = response.data as { message: string, token: string, participant: any }; // Assuming backend returns token and participant
+      // The backend response from /api/participants/verify is:
+      // { id: string, emailVerified: boolean, message: string }
+      const { id, emailVerified, message } = response.data as { id: string, emailVerified: boolean, message: string };
       
-      // Update participant context with new token and verified status
+      // Update participant context with the ID and other relevant info
+      // Note: A token is NOT returned by the /verify endpoint, so we cannot set it here.
+      // The user should be redirected to the login page after successful verification.
       setParticipant({
-        id: verifiedParticipant.id,
-        firstName: verifiedParticipant.firstName,
-        isChild: verifiedParticipant.isChild,
-        contactEmail: verifiedParticipant.email,
-        token: token,
+        id: id,
+        firstName: participant.firstName, // Keep existing firstName from context or fetch if needed
+        isChild: participant.isChild, // Keep existing isChild from context or fetch if needed
+        contactEmail: data.email, // Use the email from the form
+        token: null, // No token from /verify endpoint
       });
 
       show('success', message ?? 'E-mail confirmado com sucesso.');
       
-      // Redirect to gift list page after successful confirmation
+      // Redirect to login page after successful confirmation
       setTimeout(() => {
-        navigate('/listas');
+        navigate('/participant-login'); // Redirect to login page
       }, 1500);
     } catch (error) {
       show('error', extractErrorMessage(error));

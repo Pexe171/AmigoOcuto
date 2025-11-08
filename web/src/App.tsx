@@ -1,12 +1,14 @@
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import RegistrationPage from './pages/RegistrationPage';
 import VerificationPage from './pages/VerificationPage';
-import RequestVerificationCodePage from './pages/RequestVerificationCodePage'; // Import the new component
+import RequestVerificationCodePage from './pages/RequestVerificationCodePage';
 import GiftListPage from './pages/GiftListPage';
 import GiftLookupPage from './pages/GiftLookupPage';
 import AdminPage from './pages/AdminPage';
 import ADMLoginPage from './pages/ADMLoginPage';
-import HomePage from './pages/HomePage'; // Add this import
+import HomePage from './pages/HomePage';
+import ParticipantLoginPage from './pages/ParticipantLoginPage'; // Import ParticipantLoginPage
+import ProtectedRoute from './components/ProtectedRoute'; // Import ProtectedRoute
 
 // --- Componente Decorativo: Neve ---
 const Snowfall: React.FC = () => (
@@ -61,7 +63,7 @@ const App: React.FC = () => {
       <NotificationProvider>
         {/* Container com o fundo gradiente e a neve */}
         <div className="relative min-h-screen w-full bg-gradient-to-br from-red-800 to-red-900 overflow-x-hidden">
-          <Snowfall />
+          {/* <Snowfall /> */}
           
           {/* Cabeçalho Festivo - agora com navegação correta */}
           <FestiveHeader />
@@ -72,8 +74,15 @@ const App: React.FC = () => {
               <Route path="/" element={<HomePage />} />
               <Route path="/inscricao" element={<RegistrationPage />} />
               <Route path="/confirmacao" element={<VerificationPage />} />
-              <Route path="/login" element={<RequestVerificationCodePage />} />
-              <Route path="/listas" element={<GiftListPage />} />
+              <Route path="/login" element={<ParticipantLoginPage />} /> {/* Changed to ParticipantLoginPage */}
+              <Route 
+                path="/listas" 
+                element={
+                  <ProtectedRoute>
+                    <GiftListPage />
+                  </ProtectedRoute>
+                } 
+              />
               <Route path="/consultar" element={<GiftLookupPage />} />
               <Route path="/adm" element={<ADMLoginPage />} />
               <Route path="/admin" element={<AdminPage />} />

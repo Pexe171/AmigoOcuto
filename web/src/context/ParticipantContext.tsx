@@ -48,8 +48,8 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [participant]);
 
-  const setParticipant = (next: ParticipantState): void => setParticipantState(next);
-  const clearParticipant = (): void => setParticipantState(defaultState);
+  const setParticipant = useCallback((next: ParticipantState): void => setParticipantState(next), []);
+  const clearParticipant = useCallback((): void => setParticipantState(defaultState), []);
 
   const value = useMemo(
     () => ({ participant, setParticipant, clearParticipant }),

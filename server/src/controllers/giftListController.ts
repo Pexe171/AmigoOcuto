@@ -1,57 +1,42 @@
-// Este ficheiro deve estar em server/src/controllers/giftListController.ts
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
-import { upsertGiftList, getGiftList } from '../services/giftListService';
+import { getGiftList, updateGiftListItems } from '../services/giftListService';
+import { extractErrorMessage } from '../utils/extractErrorMessage'; // Assuming this utility exists
 
-// Esta função é chamada quando fazes PUT /api/participants/:participantId/gifts
-export const updateGiftList = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  const participantId = req.participantId;
-  if (!participantId) {
-    res.status(401).json({ message: 'ID do participante não encontrado no token.' });
-    return;
-  }
+export const getParticipantGiftList = (req: Request, res: Response): void => {
   try {
-    // 1. Tenta criar ou atualizar a lista de presentes
-    const list = await upsertGiftList(participantId.toString(), req.body);
-    res.json({
-      message: 'Lista de presentes atualizada com sucesso.',
-      items: list.items,
-    });
-  } catch (error) {
-    // 2. Se falhar (ID não existe, validação do Zod), devolve erro
-    const errorMessage = (error as Error).message;
-    if (errorMessage.includes('não encontrado') || errorMessage.includes('não foi confirmada')) {
-      res.status(404).json({ message: errorMessage });
-    } else {
-      res.status(400).json({ message: errorMessage });
+    const { participantId } = req.params;
+    if (!participantId) {
+      res.status(400).json({ message: 'Participant ID is required.' });
+      return;
     }
+    const giftList = getGiftList(participantId);
+    res.json(giftList);
+  } catch (error) {
+    res.status(500).json({ message: extractErrorMessage(error) });
   }
 };
 
-// Esta função é chamada quando fazes GET /api/participants/:participantId/gifts
-export const fetchGiftList = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  const participantId = req.participantId;
-  if (!participantId) {
-    res.status(401).json({ message: 'ID do participante não encontrado no token.' });
-    return;
-  }
+export const updateParticipantGiftList = (req: Request, res: Response): void => {
   try {
-    // 1. Tenta buscar a lista
-    const list = await getGiftList(participantId.toString());
-    // 2. Devolve os itens (ou uma lista vazia se não existir)
-    res.json({ items: list?.items ?? [] });
-  } catch (error) {
-    const errorMessage = (error as Error).message;
-    if (errorMessage.includes('não encontrado') || errorMessage.includes('não foi confirmada')) {
-      res.status(404).json({ message: errorMessage });
-    } else {
-      res.status(400).json({ message: errorMessage });
+    const { participantId } = req.params;
+    if (!participantId) {
+      res.status(400).json({ message: 'Participant ID is required.' });
+      return;
     }
+    const { items } = req.body; // items should be an array of GiftItem
+    
+    if (!Array.isArray(items)) {
+      res.status(400).json({ message: 'Items must be an array.' });
+      return;
+    }
+
+    const updatedList = updateGiftListItems(participantId, items);
+    if (!updatedList) {
+      res.status(404).json({ message: 'Gift list not found or could not be updated.' });
+      return;
+    }
+    res.json(updatedList);
+  } catch (error) {
+    res.status(500).json({ message: extractErrorMessage(error) });
   }
 };
