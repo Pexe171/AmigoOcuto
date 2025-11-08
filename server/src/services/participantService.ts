@@ -199,7 +199,7 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
     contact.email = data.email.toLowerCase();
   }
 
-  await sendVerificationEmail(contact, verificationCode);
+  await sendVerificationEmail(contact, verificationCode, 'registration');
 
   return pendingParticipant;
 };
@@ -265,7 +265,7 @@ export const requestVerificationCodeByEmail = async (
         guardianEmails: sanitizeGuardianEmails((pending as any).guardianEmails),
       };
 
-  await sendVerificationEmail(contact, verificationCode);
+  await sendVerificationEmail(contact, verificationCode, 'login');
 };
 
 export const verifyParticipant = async (
@@ -390,7 +390,7 @@ export const resendVerificationCode = async (participantId: string): Promise<voi
     contact.email = updatedPending.email;
   }
 
-  await sendVerificationEmail(contact, verificationCode);
+  await sendVerificationEmail(contact, verificationCode, 'resend');
 };
 
 const updateEmailSchema = z.object({
@@ -460,7 +460,7 @@ export const updateParticipantEmail = async (
     contact.email = normalizedEmail;
   }
 
-  await sendVerificationEmail(contact, verificationCode);
+  await sendVerificationEmail(contact, verificationCode, 'update-email');
 };
 
 const participantLoginSchema = z.object({

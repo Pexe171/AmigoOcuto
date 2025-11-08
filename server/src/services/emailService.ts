@@ -64,29 +64,71 @@ export const collectParticipantRecipients = (participant: ParticipantEmailTarget
   resolveRecipients(participant);
 
 // Função que envia o E-MAIL DE VERIFICAÇÃO
+type VerificationEmailPurpose = 'registration' | 'resend' | 'login' | 'update-email';
+
+type VerificationEmailCopy = {
+  subject: string;
+  intro: string;
+  action: (code: string, recipientLabel: string) => string;
+  footer?: string;
+};
+
+const verificationEmailCopy: Record<VerificationEmailPurpose, VerificationEmailCopy> = {
+  registration: {
+    subject: 'Confirme a sua inscrição no Amigo Ocuto',
+    intro: 'Recebemos o seu pedido para participar do Amigo Ocuto.',
+    action: (code, recipientLabel) =>
+      `Use o código <strong>${code}</strong> para validar o e-mail principal (${recipientLabel}).`,
+    footer: 'Este código expira em 30 minutos. Caso não tenha solicitado, ignore esta mensagem.',
+  },
+  resend: {
+    subject: 'Aqui está o novo código para confirmar sua participação',
+    intro: 'Conforme solicitado, reenviamos o código de verificação da sua inscrição.',
+    action: (code, recipientLabel) =>
+      `Digite <strong>${code}</strong> na página de confirmação para validar o endereço ${recipientLabel}.`,
+    footer: 'O código anterior foi substituído e este expira em 30 minutos.',
+  },
+  login: {
+    subject: 'Seu código de acesso à lista de presentes',
+    intro:
+      'Recebemos o pedido para acessar a página "Minha lista de presentes". Protegemos esse espaço com verificação em duas etapas.',
+    action: (code, recipientLabel) =>
+      `Use <strong>${code}</strong> para entrar. O código foi enviado para ${recipientLabel}.`,
+    footer: 'Se você não solicitou este acesso, pode ignorar o e-mail com segurança.',
+  },
+  'update-email': {
+    subject: 'Confirme o novo e-mail informado no Amigo Ocuto',
+    intro: 'Recebemos a solicitação para alterar o e-mail principal da inscrição.',
+    action: (code, recipientLabel) =>
+      `Digite <strong>${code}</strong> para confirmar o novo endereço (${recipientLabel}) e manter a conta protegida.`,
+    footer: 'Por segurança, o código expira em 30 minutos.',
+  },
+};
+
 export const sendVerificationEmail = async (
   participant: ParticipantContact,
   code: string,
+  purpose: VerificationEmailPurpose = 'registration',
 ): Promise<void> => {
   const recipients = resolveRecipients(participant);
   if (recipients.length === 0) {
     throw new Error('Nenhum e-mail válido foi informado para o envio do código de verificação.');
   }
+
   const mainRecipient = resolveMainRecipient(participant, recipients);
   const recipientLabel = mainRecipient ?? 'o endereço principal informado na inscrição';
+  const copy = verificationEmailCopy[purpose];
 
-  // O HTML do e-mail
   const html = `
     <p>Olá ${participant.firstName},</p>
-    <p>Recebemos o seu pedido para participar do Amigo Ocuto.</p>
-    <p>Use o código <strong>${code}</strong> para validar o e-mail principal (${recipientLabel}).</p>
-    <p>Este código expira em 30 minutos.</p>
+    <p>${copy.intro}</p>
+    <p>${copy.action(code, recipientLabel)}</p>
+    ${copy.footer ? `<p>${copy.footer}</p>` : ''}
   `;
 
-  // Chama o 'mailer' que configurámos no ficheiro anterior
   await mailer.sendMail({
     to: recipients,
-    subject: 'Confirme a sua inscrição no Amigo Ocuto',
+    subject: copy.subject,
     html,
   });
 };

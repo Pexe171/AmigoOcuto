@@ -112,7 +112,6 @@ const ParticipantLoginPage: React.FC = () => {
       });
 
       show('success', `Bem-vindo(a), ${participantData.firstName}!`);
-      navigate('/listas');
     } catch (error) {
       show('error', extractErrorMessage(error));
     } finally {

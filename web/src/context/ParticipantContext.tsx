@@ -22,6 +22,7 @@ type ParticipantContextValue = {
   participant: ParticipantState;
   setParticipant: Dispatch<SetStateAction<ParticipantState>>;
   clearParticipant: () => void;
+  isReady: boolean;
 };
 
 const defaultState: ParticipantState = {
@@ -57,6 +58,11 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     return defaultState;
   });
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    setIsReady(true);
+  }, []);
 
   useEffect(() => {
     if (participant.id && participant.token) {
@@ -77,8 +83,8 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const value = useMemo(
-    () => ({ participant, setParticipant, clearParticipant }),
-    [participant, setParticipant, clearParticipant]
+    () => ({ participant, setParticipant, clearParticipant, isReady }),
+    [participant, setParticipant, clearParticipant, isReady]
   );
 
   return <ParticipantContext.Provider value={value}>{children}</ParticipantContext.Provider>;
