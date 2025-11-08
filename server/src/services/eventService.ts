@@ -1,9 +1,7 @@
 import { z } from 'zod';
-import { Types, Document } from 'mongoose';
 import { EventModel, EventDocument } from '../models/Event';
-import { ParticipantDocument } from '../models/Participant';
 import { TicketModel, TicketDocument } from '../models/Ticket';
-import { listVerifiedParticipants, getParticipantOrFail } from './participantService';
+import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
 import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftItems } from './giftListService';
@@ -12,7 +10,7 @@ const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/);
 
 const eventSchema = z.object({
   name: z.string().min(4, 'Informe um nome descritivo para o evento.'),
-  participantIds: z.array(objectIdSchema).optional()
+  participantIds: z.array(z.string().uuid()).optional()
 });
 
 const drawSchema = z.object({
@@ -30,7 +28,7 @@ const shuffle = <T>(input: T[]): T[] => {
   return arr;
 };
 
-const ensureNoSelfAssignment = <T extends Document>(participants: T[]): T[] => {
+const ensureNoSelfAssignment = <T extends { id: string }>(participants: T[]): T[] => {
   if (participants.length < 2) {
     throw new Error('São necessários pelo menos dois participantes verificados para o sorteio.');
   }
@@ -39,7 +37,7 @@ const ensureNoSelfAssignment = <T extends Document>(participants: T[]): T[] => {
     const shuffled = shuffle(participants);
     let valid = true;
     for (let i = 0; i < participants.length; i += 1) {
-      if ((participants[i]!._id as Types.ObjectId).equals(shuffled[i]!._id as Types.ObjectId)) {
+      if (participants[i]!.id === shuffled[i]!.id) {
         valid = false;
         break;
       }
@@ -65,7 +63,7 @@ export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<E
 
   const event = new EventModel({
     name: data.name,
-    participants: uniqueIds.map((id) => new Types.ObjectId(id)),
+    participants: uniqueIds,
     status: 'ativo'
   });
 
@@ -100,7 +98,7 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     throw new Error('Este evento já foi sorteado. Crie um novo evento para refazer.');
   }
 
-  const participants = await Promise.all(event.participants.map((id) => getParticipantOrFail(id.toString())));
+  const participants = await Promise.all(event.participants.map((id) => getParticipantOrFail(id)));
   const verifiedParticipants = participants.filter((participant) => participant.emailVerified);
 
   if (verifiedParticipants.length < 2) {
@@ -111,7 +109,7 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     throw new Error('O sorteio exige um número par de participantes verificados.');
   }
 
-  const assignments = ensureNoSelfAssignment<ParticipantDocument>(verifiedParticipants);
+  const assignments = ensureNoSelfAssignment<Participant>(verifiedParticipants);
 
   const tickets: TicketDocument[] = [];
 
@@ -121,9 +119,9 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     const ticketCode = generateTicketCode();
 
     const ticket = new TicketModel({
-      event: event._id,
-      participant: participant._id,
-      assignedParticipant: assigned._id,
+      event: event.id,
+      participant: participant.id,
+      assignedParticipant: assigned.id,
       ticketCode
     });
 
@@ -131,11 +129,32 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     tickets.push(ticket);
 
     const gifts = await getGiftItems(assigned.id);
-    await sendDrawEmail(participant, assigned, ticketCode, gifts);
+    await sendDrawEmail(
+      {
+        id: participant.id,
+        firstName: participant.firstName,
+        secondName: participant.secondName,
+        isChild: participant.isChild,
+        email: participant.email ?? null,
+        primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+        guardianEmails: participant.guardianEmails ?? null,
+      },
+      {
+        id: assigned.id,
+        firstName: assigned.firstName,
+        secondName: assigned.secondName,
+        isChild: assigned.isChild,
+        email: assigned.email ?? null,
+        primaryGuardianEmail: assigned.primaryGuardianEmail ?? null,
+        guardianEmails: assigned.guardianEmails ?? null,
+      },
+      ticketCode,
+      gifts,
+    );
   }
 
   event.status = 'sorteado';
-  event.drawHistory.push({ tickets: tickets.map((ticket) => ticket._id as Types.ObjectId), drawnAt: new Date() });
+  event.drawHistory.push({ tickets: tickets.map((ticket) => ticket.id), drawnAt: new Date() });
   await event.save();
 
   return { event, tickets: tickets.length };

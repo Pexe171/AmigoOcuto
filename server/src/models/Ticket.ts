@@ -1,18 +1,18 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export interface TicketDocument extends Document {
-  event: Types.ObjectId;
-  participant: Types.ObjectId;
-  assignedParticipant: Types.ObjectId;
+  event: string;
+  participant: string;
+  assignedParticipant: string;
   ticketCode: string;
   createdAt: Date;
 }
 
 const TicketSchema = new Schema<TicketDocument>(
   {
-    event: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
-    participant: { type: Schema.Types.ObjectId, ref: 'Participant', required: true },
-    assignedParticipant: { type: Schema.Types.ObjectId, ref: 'Participant', required: true },
+    event: { type: String, required: true },
+    participant: { type: String, required: true },
+    assignedParticipant: { type: String, required: true },
     ticketCode: { type: String, required: true }
   },
   { timestamps: { createdAt: true, updatedAt: false } }

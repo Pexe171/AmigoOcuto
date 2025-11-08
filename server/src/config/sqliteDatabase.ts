@@ -13,7 +13,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // Initialize the database connection
-const db = new Database(dbPath, { verbose: console.log }); // verbose for logging queries
+const db: InstanceType<typeof Database> = new Database(dbPath, { verbose: console.log }); // verbose para registrar queries
 
 function initializeDatabase() {
     console.log('Initializing SQLite database...');
