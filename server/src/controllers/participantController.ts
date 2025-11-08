@@ -1,14 +1,6 @@
-// Este ficheiro deve estar em server/src/controllers/participantController.ts
+﻿// Este ficheiro deve estar em server/src/controllers/participantController.ts
 import { Request, Response } from 'express';
-import {
-  registerParticipant,
-  verifyParticipant,
-  resendVerificationCode,
-  getParticipantOrFail,
-  searchParticipants,
-  getParticipantByEmailOrFail,
-  updateParticipantEmail,
-} from '../services/participantService';
+import { registerParticipant, verifyParticipant, resendVerificationCode, getParticipantOrFail, searchParticipants, getParticipantByEmailOrFail, updateParticipantEmail, requestVerificationCodeByEmail } from '../services/participantService';
 import { ensureNames } from '../utils/nameUtils';
 
 const resolveParticipantId = (participant: { id?: string; _id?: unknown }): string => {
@@ -25,7 +17,7 @@ const resolveParticipantId = (participant: { id?: string; _id?: unknown }): stri
     return (rawId as { toString: () => string }).toString();
   }
 
-  throw new Error('Participante sem identificador válido.');
+  throw new Error('Participante sem identificador vÃ¡lido.');
 };
 
 const extractGuardianEmails = (participant: { guardianEmails?: unknown }): string[] => {
@@ -41,7 +33,7 @@ const extractGuardianEmails = (participant: { guardianEmails?: unknown }): strin
         return parsed.filter((email): email is string => typeof email === 'string');
       }
     } catch (error) {
-      console.warn('Não foi possível converter guardianEmails armazenados como string JSON.', error);
+      console.warn('NÃ£o foi possÃ­vel converter guardianEmails armazenados como string JSON.', error);
       return [guardianEmails];
     }
     return [guardianEmails];
@@ -50,30 +42,71 @@ const extractGuardianEmails = (participant: { guardianEmails?: unknown }): strin
   return [];
 };
 
-// Esta função é chamada quando fazes POST /api/participants
+const normalizeText = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/-/g, '')
+    .toLowerCase();
+
+const CLIENT_ERROR_KEYWORDS = [
+  'informe',
+  'crian',
+  'adultos',
+  'inscri',
+  'codigo',
+  'participante',
+  'email',
+  'respons',
+  'nenhum email',
+  'valido',
+];
+
+const isClientErrorIndicator = (normalizedMessage: string): boolean =>
+  normalizedMessage.length > 0 &&
+  CLIENT_ERROR_KEYWORDS.some((keyword) => normalizedMessage.includes(keyword));
+
+const resolveClientErrorStatus = (normalizedMessage: string): number => {
+  if (normalizedMessage.includes('ja esta inscrito') && normalizedMessage.includes('confirmado')) {
+    return 409;
+  }
+  if (normalizedMessage.includes('ja foi confirmada')) {
+    return 409;
+  }
+  if (normalizedMessage.includes('nao encontrado')) {
+    return 404;
+  }
+  return 400;
+};
+
+// Esta funÃ§Ã£o Ã© chamada quando fazes POST /api/participants
 export const createParticipant = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    // 1. Tenta registar o participante (aqui é que o email é disparado)
+    // 1. Tenta registar o participante (aqui Ã© que o email Ã© disparado)
     const participant = await registerParticipant(req.body);
     res.status(201).json({
       id: resolveParticipantId(participant),
       message:
-        'Inscrição criada com sucesso. Verifique o e-mail informado para confirmar a participação.',
+        'InscriÃ§Ã£o criada com sucesso. Verifique o e-mail informado para confirmar a participaÃ§Ã£o.',
     });
   } catch (error) {
-    if ((error as Error).message.includes('validação') || (error as Error).message.includes('inválido')) {
-      res.status(400).json({ message: (error as Error).message });
-    } else {
-      console.error('Erro ao criar participante:', error);
-      res.status(500).json({ message: 'Ocorreu um erro interno no servidor.' });
+    const errorMessage = error instanceof Error ? error.message : '';
+    const normalizedMessage = errorMessage ? normalizeText(errorMessage) : '';
+
+    if (isClientErrorIndicator(normalizedMessage)) {
+      res.status(resolveClientErrorStatus(normalizedMessage)).json({ message: errorMessage });
+      return;
     }
+
+    console.error('Erro ao criar participante:', error);
+    res.status(500).json({ message: 'Ocorreu um erro interno no servidor.' });
   }
 };
 
-// Esta função é chamada quando fazes POST /api/participants/verify
+// Esta funÃ§Ã£o Ã© chamada quando fazes POST /api/participants/verify
 export const confirmParticipant = async (
   req: Request,
   res: Response,
@@ -90,34 +123,45 @@ export const confirmParticipant = async (
   }
 };
 
-// Função para reenviar o código (não está a ser usada no frontend novo, mas existe)
+// FunÃ§Ã£o para reenviar o cÃ³digo (nÃ£o estÃ¡ a ser usada no frontend novo, mas existe)
 export const resendVerification = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   if (!id) {
-    res.status(400).json({ message: 'Informe o identificador da inscrição.' });
+    res.status(400).json({ message: 'Informe o identificador da inscriÃ§Ã£o.' });
     return;
   }
   try {
     await resendVerificationCode(id);
     res.json({
-      message: 'Um novo código foi enviado para o e-mail principal cadastrado.',
+      message: 'Um novo cÃ³digo foi enviado para o e-mail principal cadastrado.',
     });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
 };
+export const requestVerificationCode = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    await requestVerificationCodeByEmail(req.body);
+    res.json({ message: 'Código de verificação enviado para o e-mail informado, se existir cadastro.' });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+};
 
-// Função para buscar o status (usada na página de lista de presentes)
+// FunÃ§Ã£o para buscar o status (usada na pÃ¡gina de lista de presentes)
 export const getParticipantStatus = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   if (!id) {
-    res.status(400).json({ message: 'Informe o identificador da inscrição.' });
+    res.status(400).json({ message: 'Informe o identificador da inscriÃ§Ã£o.' });
     return;
   }
   try {
@@ -217,7 +261,7 @@ export const getParticipantStatusByEmail = async (
     });
   } catch (error) {
     const errorMessage = (error as Error).message;
-    if (errorMessage.includes('não encontrado') || errorMessage.includes('não foi confirmada')) {
+    if (errorMessage.includes('nÃ£o encontrado') || errorMessage.includes('nÃ£o foi confirmada')) {
       res.status(404).json({ message: errorMessage });
     } else {
       res.status(400).json({ message: errorMessage });
@@ -232,7 +276,7 @@ export const updateEmail = async (
   try {
     await updateParticipantEmail(req.body);
     res.json({
-      message: 'E-mail atualizado com sucesso. Um novo código de verificação foi enviado para o novo endereço.',
+      message: 'E-mail atualizado com sucesso. Um novo cÃ³digo de verificaÃ§Ã£o foi enviado para o novo endereÃ§o.',
     });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
@@ -243,6 +287,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/environment';
 import { authenticateParticipantByEmailAndCode } from '../services/participantService';
 
+
 type ParticipantTokenPayload = {
   participantId: string;
   email?: string;
@@ -252,7 +297,7 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
   try {
     const { email, code } = req.body;
     if (!email || !code) {
-      res.status(400).json({ message: 'Informe o e-mail e o código de verificação.' });
+      res.status(400).json({ message: 'Informe o e-mail e o cÃ³digo de verificaÃ§Ã£o.' });
       return;
     }
 
@@ -284,3 +329,7 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
     res.status(400).json({ message: (error as Error).message });
   }
 };
+
+
+
+
