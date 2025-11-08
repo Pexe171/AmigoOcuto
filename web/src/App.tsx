@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import RegistrationPage from './pages/RegistrationPage';
 import VerificationPage from './pages/VerificationPage';
-import RequestVerificationCodePage from './pages/RequestVerificationCodePage';
 import GiftListPage from './pages/GiftListPage';
 import GiftLookupPage from './pages/GiftLookupPage';
 import AdminPage from './pages/AdminPage';

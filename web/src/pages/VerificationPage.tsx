@@ -106,7 +106,7 @@ const VerificationPage: React.FC = () => {
       
       // Redirect to login page after successful confirmation
       setTimeout(() => {
-        navigate('/participant-login'); // Redirect to login page
+        navigate('/login'); // Redirect to login page
       }, 1500);
     } catch (error) {
       show('error', extractErrorMessage(error));

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import FestiveCard from '../components/FestiveCard';
 import { useNotification } from '../hooks/useNotification';
@@ -27,19 +27,16 @@ const GiftListPage: React.FC = () => {
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newItemNotes, setNewItemNotes] = useState('');
 
-  useEffect(() => {
-    if (!participant.token) {
-      show('error', 'Você precisa estar logado para acessar sua lista de presentes.');
-      navigate('/participant-login');
-      return;
-    }
-    fetchGiftList();
-  }, [participant.token, navigate, show]);
+  const handleLogout = useCallback(() => {
+    clearParticipant();
+    navigate('/login');
+    show('info', 'Você foi desconectado.');
+  }, [clearParticipant, navigate, show]);
 
-  const fetchGiftList = async () => {
+  const fetchGiftList = useCallback(async () => {
     setLoading(true);
-    if (!participant.id) {
-      console.error('Participant ID is missing, cannot fetch gift list.');
+    if (!participant.id || !participant.token) {
+      console.error('Participant is missing credentials, cannot fetch gift list.');
       setLoading(false);
       return;
     }
@@ -63,7 +60,14 @@ const GiftListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [handleLogout, participant.id, participant.token, show]);
+
+  useEffect(() => {
+    if (!participant.token || !participant.id) {
+      return;
+    }
+    void fetchGiftList();
+  }, [participant.token, participant.id, fetchGiftList]);
 
   const handleAddItem = async () => {
     if (!newItemName.trim()) {
@@ -73,7 +77,16 @@ const GiftListPage: React.FC = () => {
     setSaving(true);
     clear();
     try {
-      const updatedList = [...giftList, { id: Date.now().toString(), name: newItemName, url: newItemUrl, notes: newItemNotes, purchased: false }];
+      const updatedList = [
+        ...giftList,
+        {
+          id: Date.now().toString(),
+          name: newItemName,
+          url: newItemUrl,
+          notes: newItemNotes,
+          purchased: false,
+        },
+      ];
       await api.put(`/gift-lists/${participant.id}`, { items: updatedList }, {
         headers: {
           Authorization: `Bearer ${participant.token}`,
@@ -114,8 +127,8 @@ const GiftListPage: React.FC = () => {
     setSaving(true);
     clear();
     try {
-      const updatedList = giftList.map(item =>
-        item.id === id ? { ...item, purchased: !item.purchased } : item
+      const updatedList = giftList.map((item) =>
+        item.id === id ? { ...item, purchased: !item.purchased } : item,
       );
       await api.put(`/gift-lists/${participant.id}`, { items: updatedList }, {
         headers: {
@@ -129,12 +142,6 @@ const GiftListPage: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleLogout = () => {
-    clearParticipant();
-    navigate('/participant-login');
-    show('info', 'Você foi desconectado.');
   };
 
   if (loading) {

@@ -48,7 +48,7 @@ const HomePage: React.FC = () => {
           
           {/* Botão Secundário: Construir Lista (Branco/Vermelho para contraste) */}
           <ButtonStyle
-            to="/listas"
+            to="/login"
             className="bg-white text-red-700 shadow-white/50 hover:bg-gray-100 focus:ring-white"
           >
             Construir Lista
