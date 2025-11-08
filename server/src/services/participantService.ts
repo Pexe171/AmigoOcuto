@@ -6,6 +6,7 @@ import { ensureNames } from '../utils/nameUtils';
 import {
   findParticipantById,
   findParticipantByEmail,
+  findParticipantByPrimaryEmail,
   insertParticipant,
   countParticipants,
   findAllParticipants,
@@ -136,7 +137,7 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
       throw new Error('Adultos precisam informar um e-mail para contato.');
     }
     const normalizedEmail = data.email.toLowerCase();
-    const existing = findParticipantByEmail(normalizedEmail);
+    const existing = findParticipantByPrimaryEmail(normalizedEmail);
     if (existing) {
       throw new Error('Este e-mail já está inscrito e confirmado.');
     }
@@ -325,7 +326,7 @@ export const updateParticipantEmail = async (
     throw new Error('Inscrição não encontrada. Faça uma nova inscrição.');
   }
 
-  const existingParticipant = findParticipantByEmail(normalizedEmail);
+  const existingParticipant = findParticipantByPrimaryEmail(normalizedEmail);
   if (existingParticipant) {
     throw new Error('Este e-mail já está em uso por outra inscrição confirmada.');
   }
