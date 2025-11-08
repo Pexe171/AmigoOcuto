@@ -1,19 +1,16 @@
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { sendVerificationEmail, ParticipantContact } from './emailService';
+import { sendVerificationEmail, ParticipantContact, buildGuardianList } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
 import { ensureNames } from '../utils/nameUtils';
 import {
   findParticipantById,
   findParticipantByEmail,
   insertParticipant,
-  updateParticipant,
-  deleteParticipant,
   countParticipants,
   findAllParticipants,
   searchParticipantsByNameAndEmail,
   findPendingParticipantById,
-  findPendingParticipantByEmail,
   insertPendingParticipant,
   updatePendingParticipant,
   deletePendingParticipant,
@@ -30,7 +27,7 @@ export interface Participant {
   email?: string;
   isChild: boolean;
   primaryGuardianEmail?: string;
-  guardianEmails?: string; // Stored as JSON string
+  guardianEmails: string[];
   emailVerified: boolean;
   verificationCodeHash?: string;
   verificationExpiresAt?: string; // DATETIME string
@@ -44,10 +41,10 @@ export interface PendingParticipant {
   email?: string; // Made optional
   firstName: string;
   secondName: string;
-  isChild?: boolean; // Added
-  primaryGuardianEmail?: string; // Added
-  guardianEmails?: string; // Added (JSON string)
-  attendingInPerson?: boolean; // Added
+  isChild: boolean;
+  primaryGuardianEmail?: string;
+  guardianEmails: string[];
+  attendingInPerson?: boolean;
   verificationCodeHash: string;
   expiresAt: string; // DATETIME string
   createdAt: string; // DATETIME string
@@ -98,9 +95,10 @@ const verificationSchema = z.object({
 
 const searchSchema = z.string().trim().min(2, 'Informe pelo menos duas letras para pesquisar.').max(80);
 
-const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 export type RegistrationInput = z.infer<typeof registrationSchema>;
+
+const normalizeEmail = (email?: string | null): string | undefined =>
+  email ? email.toLowerCase().trim() : undefined;
 
 export const registerParticipant = async (input: RegistrationInput): Promise<PendingParticipant> => {
   const data = registrationSchema.parse(input);
@@ -114,6 +112,8 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
     throw new Error('Informe o nome completo.');
   }
 
+  let normalizedAdultEmail: string | undefined;
+
   if (data.isChild) {
     if (!data.primaryGuardianEmail) {
       throw new Error('Crianças precisam de um e-mail principal de responsável.');
@@ -122,51 +122,92 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
     if (!data.email) {
       throw new Error('Adultos precisam informar um e-mail para contato.');
     }
-    const normalizedEmail = data.email.toLowerCase();
-    const existing = findParticipantByEmail(normalizedEmail);
+    normalizedAdultEmail = normalizeEmail(data.email);
+    if (!normalizedAdultEmail) {
+      throw new Error('Adultos precisam informar um e-mail válido.');
+    }
+    const existing = findParticipantByEmail(normalizedAdultEmail);
     if (existing) {
       throw new Error('Este e-mail já está inscrito e confirmado.');
     }
-    deletePendingParticipantsByEmail(normalizedEmail);
+    const pendingWithEmail = findPendingParticipantByEmailOrGuardianEmail(normalizedAdultEmail);
+    if (pendingWithEmail) {
+      deletePendingParticipant(pendingWithEmail.id);
+    }
+    deletePendingParticipantsByEmail(normalizedAdultEmail);
   }
 
   const verificationCode = generateVerificationCode();
   const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
   const verificationExpiresAt = new Date(Date.now() + verificationTTLMinutes * 60 * 1000).toISOString();
 
-  const primaryGuardianEmail = data.primaryGuardianEmail?.toLowerCase();
-  const normalizedGuardianEmails = data.guardianEmails?.map((email) => email.toLowerCase()) ?? [];
+  const primaryGuardianEmail = normalizeEmail(data.primaryGuardianEmail);
+  const normalizedGuardianEmails = (data.guardianEmails ?? [])
+    .map((email) => normalizeEmail(email))
+    .filter((email): email is string => Boolean(email));
   const guardianEmails = data.isChild
     ? buildGuardianList(primaryGuardianEmail, normalizedGuardianEmails)
     : [];
 
-  const pendingParticipantToInsert = {
-    email: data.email?.toLowerCase(),
+  if (data.isChild && !primaryGuardianEmail) {
+    throw new Error('Informe um e-mail válido para o responsável principal.');
+  }
+
+  if (data.isChild && primaryGuardianEmail) {
+    const existingGuardianParticipant = findParticipantByEmail(primaryGuardianEmail);
+    if (existingGuardianParticipant) {
+      throw new Error('Este e-mail de responsável já está vinculado a uma inscrição confirmada.');
+    }
+    const pendingGuardian = findPendingParticipantByEmailOrGuardianEmail(primaryGuardianEmail);
+    if (pendingGuardian) {
+      throw new Error('Este e-mail de responsável já está em uso em outra inscrição.');
+    }
+  }
+
+  const pendingParticipantToInsert: Omit<PendingParticipant, 'id' | 'createdAt' | 'updatedAt'> = {
     firstName,
     secondName,
+    isChild: Boolean(data.isChild),
+    guardianEmails,
     verificationCodeHash,
     expiresAt: verificationExpiresAt,
   };
 
-  const participant = insertPendingParticipant(pendingParticipantToInsert);
-
-  const contact: ParticipantContact = {
-    firstName: participant.firstName,
-    isChild: data.isChild, // Use data.isChild from input as participant.isChild is not directly available in PendingParticipant
-    guardianEmails: guardianEmails,
-  };
-
-  if (primaryGuardianEmail) {
-    contact.primaryGuardianEmail = primaryGuardianEmail;
+  if (typeof data.attendingInPerson === 'boolean') {
+    pendingParticipantToInsert.attendingInPerson = data.attendingInPerson;
   }
 
-  if (data.email) {
-    contact.email = data.email;
+  if (data.isChild && primaryGuardianEmail) {
+    pendingParticipantToInsert.primaryGuardianEmail = primaryGuardianEmail;
+  }
+
+  if (!data.isChild && normalizedAdultEmail) {
+    pendingParticipantToInsert.email = normalizedAdultEmail;
+  }
+
+  const pendingParticipant = insertPendingParticipant(pendingParticipantToInsert);
+
+  if (!pendingParticipant) {
+    throw new Error('Erro ao registrar a inscrição. Tente novamente em instantes.');
+  }
+
+  const contact: ParticipantContact = {
+    firstName: pendingParticipant.firstName,
+    isChild: pendingParticipant.isChild,
+    guardianEmails: pendingParticipant.guardianEmails,
+  };
+
+  if (pendingParticipant.primaryGuardianEmail) {
+    contact.primaryGuardianEmail = pendingParticipant.primaryGuardianEmail;
+  }
+
+  if (pendingParticipant.email) {
+    contact.email = pendingParticipant.email;
   }
 
   await sendVerificationEmail(contact, verificationCode);
 
-  return participant;
+  return pendingParticipant;
 };
 
 export const verifyParticipant = async (
@@ -192,29 +233,50 @@ export const verifyParticipant = async (
     throw new Error('Código inválido. Confira o e-mail enviado.');
   }
 
-  const participantToInsert = {
+  const participantToInsert: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'> = {
     firstName: pending.firstName,
     secondName: pending.secondName,
-    email: pending.email,
-    isChild: false, // PendingParticipant doesn't store isChild, assuming false for now or needs to be passed from registration
-    primaryGuardianEmail: undefined, // Same as above
-    guardianEmails: undefined, // Same as above
+    isChild: pending.isChild,
+    guardianEmails: pending.guardianEmails,
     emailVerified: true,
-    verificationCodeHash: pending.verificationCodeHash,
     verificationExpiresAt: pending.expiresAt,
-    attendingInPerson: typeof data.attendingInPerson === 'boolean' ? data.attendingInPerson : undefined,
   };
 
+  if (pending.email) {
+    participantToInsert.email = pending.email;
+  }
+
+  if (pending.primaryGuardianEmail) {
+    participantToInsert.primaryGuardianEmail = pending.primaryGuardianEmail;
+  }
+
+  if (pending.verificationCodeHash) {
+    participantToInsert.verificationCodeHash = pending.verificationCodeHash;
+  }
+
+  const attendingInPerson =
+    typeof data.attendingInPerson === 'boolean'
+      ? data.attendingInPerson
+      : pending.attendingInPerson;
+
+  if (typeof attendingInPerson === 'boolean') {
+    participantToInsert.attendingInPerson = attendingInPerson;
+  }
+
   const participant = insertParticipant(participantToInsert);
+  if (!participant) {
+    throw new Error('Não foi possível confirmar a inscrição. Tente novamente.');
+  }
+
   deletePendingParticipant(pending.id);
 
   return participant;
 };
 
 export const resendVerificationCode = async (participantId: string): Promise<void> => {
-  const pending = await PendingParticipantModel.findById(participantId);
+  const pending = findPendingParticipantById(participantId);
   if (!pending) {
-    const participant = await ParticipantModel.findById(participantId);
+    const participant = findParticipantById(participantId);
     if (participant && participant.emailVerified) {
       throw new Error('Este participante já confirmou o e-mail.');
     }
@@ -222,24 +284,30 @@ export const resendVerificationCode = async (participantId: string): Promise<voi
   }
 
   const verificationCode = generateVerificationCode();
-  pending.verification = {
-    codeHash: await bcrypt.hash(verificationCode, 10),
-    expiresAt: new Date(Date.now() + verificationTTLMinutes * 60 * 1000)
+  const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
+  const expiresAt = new Date(Date.now() + verificationTTLMinutes * 60 * 1000).toISOString();
+
+  const updatedPending = updatePendingParticipant(participantId, {
+    verificationCodeHash,
+    expiresAt,
+  }) ?? {
+    ...pending,
+    verificationCodeHash,
+    expiresAt,
   };
 
-  await pending.save();
   const pendingContact: ParticipantContact = {
-    firstName: pending.firstName,
-    isChild: pending.isChild,
-    guardianEmails: pending.guardianEmails
+    firstName: updatedPending.firstName,
+    isChild: updatedPending.isChild,
+    guardianEmails: updatedPending.guardianEmails,
   };
 
-  if (pending.primaryGuardianEmail) {
-    pendingContact.primaryGuardianEmail = pending.primaryGuardianEmail;
+  if (updatedPending.primaryGuardianEmail) {
+    pendingContact.primaryGuardianEmail = updatedPending.primaryGuardianEmail;
   }
 
-  if (pending.email) {
-    pendingContact.email = pending.email;
+  if (updatedPending.email) {
+    pendingContact.email = updatedPending.email;
   }
 
   await sendVerificationEmail(pendingContact, verificationCode);
@@ -254,76 +322,67 @@ export const updateParticipantEmail = async (
   input: z.infer<typeof updateEmailSchema>
 ): Promise<void> => {
   const data = updateEmailSchema.parse(input);
-  const normalizedEmail = data.newEmail.toLowerCase().trim();
+  const normalizedEmail = normalizeEmail(data.newEmail);
 
-  const pending = await PendingParticipantModel.findById(data.participantId);
+  if (!normalizedEmail) {
+    throw new Error('Informe um e-mail válido.');
+  }
+
+  const pending = findPendingParticipantById(data.participantId);
   if (!pending) {
-    const participant = await ParticipantModel.findById(data.participantId);
+    const participant = findParticipantById(data.participantId);
     if (participant && participant.emailVerified) {
       throw new Error('Este participante já confirmou o e-mail. Não é possível alterar o e-mail após a confirmação.');
     }
     throw new Error('Inscrição não encontrada. Faça uma nova inscrição.');
   }
 
-  // Verificar se o novo email já está em uso (participantes confirmados)
-  const existingParticipant = await ParticipantModel.findOne({
-    $or: [
-      { email: normalizedEmail },
-      { primaryGuardianEmail: normalizedEmail }
-    ]
-  });
-  if (existingParticipant) {
+  const existingParticipant = findParticipantByEmail(normalizedEmail);
+  if (existingParticipant && existingParticipant.id !== pending.id) {
     throw new Error('Este e-mail já está em uso por outra inscrição confirmada.');
   }
 
-  // Verificar se já existe um pendente com este email (exceto o próprio)
-  const existingPending = await PendingParticipantModel.findOne({ 
-    $or: [
-      { email: normalizedEmail },
-      { primaryGuardianEmail: normalizedEmail }
-    ],
-    _id: { $ne: data.participantId }
-  });
-  if (existingPending) {
+  const existingPending = findPendingParticipantByEmailOrGuardianEmail(normalizedEmail);
+  if (existingPending && existingPending.id !== pending.id) {
     throw new Error('Este e-mail já está em uso por outra inscrição pendente.');
   }
 
-  // Atualizar o email
-  if (pending.isChild) {
-    // Para crianças, atualizar o email do responsável principal
-    if (!normalizedEmail) {
-      throw new Error('É necessário informar um e-mail válido para o responsável.');
-    }
-    pending.primaryGuardianEmail = normalizedEmail;
-    // Limpar emails adicionais se necessário
-    pending.guardianEmails = pending.guardianEmails.filter(e => e !== normalizedEmail);
-  } else {
-    // Para adultos, atualizar o email principal
-    pending.email = normalizedEmail;
-  }
-
-  // Gerar novo código de verificação
   const verificationCode = generateVerificationCode();
-  pending.verification = {
-    codeHash: await bcrypt.hash(verificationCode, 10),
-    expiresAt: new Date(Date.now() + verificationTTLMinutes * 60 * 1000)
-  };
+  const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
+  const expiresAt = new Date(Date.now() + verificationTTLMinutes * 60 * 1000).toISOString();
 
-  await pending.save();
+  const updates: Partial<PendingParticipant> = pending.isChild
+    ? {
+        primaryGuardianEmail: normalizedEmail,
+        guardianEmails: buildGuardianList(
+          normalizedEmail,
+          pending.guardianEmails.filter((email) => email !== normalizedEmail)
+        ),
+      }
+    : { email: normalizedEmail };
 
-  // Enviar email com novo código
-  const pendingContact: ParticipantContact = {
-    firstName: pending.firstName,
-    isChild: pending.isChild,
-    guardianEmails: pending.guardianEmails
-  };
+  const updated = updatePendingParticipant(pending.id, {
+    ...updates,
+    verificationCodeHash,
+    expiresAt,
+  });
 
-  if (pending.primaryGuardianEmail) {
-    pendingContact.primaryGuardianEmail = pending.primaryGuardianEmail;
+  if (!updated) {
+    throw new Error('Não foi possível atualizar o e-mail. Tente novamente.');
   }
 
-  if (pending.email) {
-    pendingContact.email = pending.email;
+  const pendingContact: ParticipantContact = {
+    firstName: updated.firstName,
+    isChild: updated.isChild,
+    guardianEmails: updated.guardianEmails,
+  };
+
+  if (updated.primaryGuardianEmail) {
+    pendingContact.primaryGuardianEmail = updated.primaryGuardianEmail;
+  }
+
+  if (updated.email) {
+    pendingContact.email = updated.email;
   }
 
   await sendVerificationEmail(pendingContact, verificationCode);
@@ -338,76 +397,81 @@ export const authenticateParticipantByEmailAndCode = async (
   input: z.infer<typeof participantLoginSchema>
 ): Promise<Participant> => {
   const data = participantLoginSchema.parse(input);
-  const normalizedEmail = data.email.toLowerCase().trim();
+  const normalizedEmail = normalizeEmail(data.email);
 
-  // Try to find in verified participants first
-  let participant = await ParticipantModel.findOne({ email: normalizedEmail });
-  if (!participant) {
-    participant = await ParticipantModel.findOne({ primaryGuardianEmail: normalizedEmail });
+  if (!normalizedEmail) {
+    throw new Error('Informe um e-mail válido.');
   }
 
+  const participant = findParticipantByEmail(normalizedEmail);
   if (participant) {
     if (participant.emailVerified) {
-      // Already verified, no need for code
       return participant;
     }
-    // If not verified, but exists in ParticipantModel, something is wrong.
-    // Maybe it was verified and then unverified? Or a bug.
-    // For now, let's treat it as not found for code verification.
     throw new Error('Participante não verificado. Por favor, use o código de verificação.');
   }
 
-  // If not in ParticipantModel, check PendingParticipantModel
-  const pending = await PendingParticipantModel.findOne({
-    $or: [{ email: normalizedEmail }, { primaryGuardianEmail: normalizedEmail }],
-  });
+  const pending = findPendingParticipantByEmailOrGuardianEmail(normalizedEmail);
 
   if (!pending) {
     throw new Error('Participante não encontrado. Verifique o e-mail e tente novamente.');
   }
 
-  if (pending.verification.expiresAt.getTime() < Date.now()) {
+  if (new Date(pending.expiresAt).getTime() < Date.now()) {
     throw new Error('O código de verificação expirou. Solicite um novo.');
   }
 
-  const isValidCode = await bcrypt.compare(data.code, pending.verification.codeHash);
+  const isValidCode = await bcrypt.compare(data.code, pending.verificationCodeHash);
   if (!isValidCode) {
     throw new Error('Código inválido. Confira o e-mail enviado.');
   }
 
-  // If code is valid, move from pending to verified participant
-  const verifiedParticipant = new ParticipantModel({
-    _id: pending._id,
+  const participantToInsert: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'> = {
     firstName: pending.firstName,
     secondName: pending.secondName,
-    email: pending.email,
     isChild: pending.isChild,
-    primaryGuardianEmail: pending.primaryGuardianEmail,
     guardianEmails: pending.guardianEmails,
     emailVerified: true,
-    attendingInPerson: pending.attendingInPerson,
-  });
+    verificationExpiresAt: pending.expiresAt,
+  };
 
-  verifiedParticipant.set('createdAt', pending.createdAt);
-  verifiedParticipant.set('updatedAt', new Date());
+  if (pending.email) {
+    participantToInsert.email = pending.email;
+  }
 
-  await verifiedParticipant.save();
-  await PendingParticipantModel.deleteOne({ _id: pending._id });
+  if (pending.primaryGuardianEmail) {
+    participantToInsert.primaryGuardianEmail = pending.primaryGuardianEmail;
+  }
+
+  if (pending.verificationCodeHash) {
+    participantToInsert.verificationCodeHash = pending.verificationCodeHash;
+  }
+
+  if (typeof pending.attendingInPerson === 'boolean') {
+    participantToInsert.attendingInPerson = pending.attendingInPerson;
+  }
+
+  const verifiedParticipant = insertParticipant(participantToInsert);
+  if (!verifiedParticipant) {
+    throw new Error('Não foi possível concluir a autenticação. Tente novamente.');
+  }
+
+  deletePendingParticipant(pending.id);
 
   return verifiedParticipant;
 };
 
 export const getParticipantOrFail = async (participantId: string): Promise<Participant> => {
   try {
-    const participant = await ParticipantModel.findById(participantId);
+    const participant = findParticipantById(participantId);
     if (!participant) {
-      const pending = await PendingParticipantModel.findById(participantId);
+      const pending = findPendingParticipantById(participantId);
       if (pending) {
         throw new Error('Esta inscrição ainda não foi confirmada. Valide o código enviado por e-mail.');
       }
       // Verificar se há algum participante no banco para debug
-      const totalParticipants = await ParticipantModel.countDocuments();
-      const totalPending = await PendingParticipantModel.countDocuments();
+      const totalParticipants = countParticipants();
+      const totalPending = countPendingParticipants();
       console.log(`[DEBUG] Participante ${participantId} não encontrado. Total de participantes verificados: ${totalParticipants}, Total pendentes: ${totalPending}`);
       throw new Error('Participante não encontrado. Verifique se o ID está correto e se a inscrição foi confirmada.');
     }
@@ -428,25 +492,15 @@ export const getParticipantByEmailOrFail = async (email: string): Promise<Partic
     throw new Error('E-mail inválido.');
   }
   const normalizedEmail = email.toLowerCase().trim();
-  
+
   try {
     // Buscar primeiro no modelo de participantes confirmados
-    let participant = await ParticipantModel.findOne({ email: normalizedEmail });
-    
-    if (!participant) {
-      // Se não encontrou pelo email direto, pode ser criança com email do responsável
-      participant = await ParticipantModel.findOne({ primaryGuardianEmail: normalizedEmail });
-    }
-    
+    const participant = findParticipantByEmail(normalizedEmail);
+
     if (!participant) {
       // Verificar se está pendente
-      const pending = await PendingParticipantModel.findOne({
-        $or: [
-          { email: normalizedEmail },
-          { primaryGuardianEmail: normalizedEmail }
-        ]
-      });
-      
+      const pending = findPendingParticipantByEmailOrGuardianEmail(normalizedEmail);
+
       if (pending) {
         throw new Error('Esta inscrição ainda não foi confirmada. Valide o código enviado por e-mail.');
       }
@@ -467,29 +521,12 @@ export const getParticipantByEmailOrFail = async (email: string): Promise<Partic
 };
 
 export const listVerifiedParticipants = async (): Promise<Participant[]> => {
-  return ParticipantModel.find({ emailVerified: true }).sort({ createdAt: 1 }).exec();
+  return findAllParticipants()
+    .filter((participant) => participant.emailVerified)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 };
 
 export const searchParticipants = async (term: string): Promise<Participant[]> => {
   const query = searchSchema.parse(term);
-  const regex = new RegExp(escapeRegExp(query), 'i');
-
-  return ParticipantModel.find({
-    emailVerified: true,
-    $or: [
-      { firstName: regex },
-      { secondName: regex },
-      {
-        $expr: {
-          $regexMatch: {
-            input: { $concat: ['$firstName', ' ', '$secondName'] },
-            regex
-          }
-        }
-      }
-    ]
-  })
-    .sort({ firstName: 1, secondName: 1 })
-    .limit(15)
-    .exec();
+  return searchParticipantsByNameAndEmail(query);
 };

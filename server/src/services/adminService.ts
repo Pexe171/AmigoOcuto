@@ -1,7 +1,11 @@
 import { Types } from 'mongoose';
 import { ParticipantModel } from '../models/Participant';
 import { GiftListModel, GiftItem } from '../models/GiftList';
-import { collectParticipantRecipients, sendTestEmailToParticipant } from './emailService';
+import {
+  collectParticipantRecipients,
+  sendTestEmailToParticipant,
+  ParticipantEmailSnapshot,
+} from './emailService';
 import { ensureNames } from '../utils/nameUtils';
 
 interface ParticipantData {
@@ -139,13 +143,29 @@ export const sendTestEmailsToAllParticipants = async (): Promise<{ participants:
   let totalRecipients = 0;
 
   for (const participant of participants) {
-    const recipients = collectParticipantRecipients(participant);
+    const snapshot: ParticipantEmailSnapshot = {
+      id: participant.id,
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+      isChild: participant.isChild,
+      guardianEmails: participant.guardianEmails ?? [],
+    };
+
+    if (participant.email) {
+      snapshot.email = participant.email;
+    }
+
+    if (participant.primaryGuardianEmail) {
+      snapshot.primaryGuardianEmail = participant.primaryGuardianEmail;
+    }
+
+    const recipients = collectParticipantRecipients(snapshot);
     if (recipients.length === 0) {
       continue;
     }
     participantsNotified += 1;
     totalRecipients += recipients.length;
-    await sendTestEmailToParticipant(participant, recipients);
+    await sendTestEmailToParticipant(snapshot, recipients);
   }
 
   return { participants: participantsNotified, recipients: totalRecipients };
