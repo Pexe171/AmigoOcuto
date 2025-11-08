@@ -1,6 +1,5 @@
 // Este ficheiro deve estar em server/src/services/emailService.ts
 import { mailer } from '../config/mailer';
-import { ParticipantDocument } from '../models/Participant';
 import { GiftItem } from '../models/GiftList';
 
 export type ParticipantContact = {
@@ -11,9 +10,20 @@ export type ParticipantContact = {
   guardianEmails: string[];
 };
 
-type ParticipantEmailTarget = Pick<ParticipantContact, 'isChild' | 'email' | 'primaryGuardianEmail' | 'guardianEmails'>;
+type ParticipantEmailTarget = {
+  isChild: boolean;
+  email?: string | null;
+  primaryGuardianEmail?: string | null;
+  guardianEmails?: string[] | null;
+};
 
-const buildGuardianList = (primary?: string | null, extras: string[] = []): string[] => {
+export type ParticipantEmailData = ParticipantEmailTarget & {
+  id?: string;
+  firstName: string;
+  secondName?: string | null;
+};
+
+export const buildGuardianList = (primary?: string | null, extras: string[] = []): string[] => {
   const guardians = new Set<string>();
   if (primary) {
     guardians.add(primary);
@@ -83,8 +93,8 @@ export const sendVerificationEmail = async (
 
 // Função que envia o E-MAIL DO SORTEIO
 export const sendDrawEmail = async (
-  participant: ParticipantDocument,
-  assigned: ParticipantDocument,
+  participant: ParticipantEmailData,
+  assigned: ParticipantEmailData,
   ticketCode: string,
   gifts: GiftItem[],
 ): Promise<void> => {
@@ -134,7 +144,7 @@ export const sendDrawEmail = async (
 };
 
 export const sendTestEmailToParticipant = async (
-  participant: ParticipantDocument,
+  participant: ParticipantEmailData,
   recipients: string[],
 ): Promise<void> => {
   if (recipients.length === 0) {

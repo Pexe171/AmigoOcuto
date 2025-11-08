@@ -1,9 +1,9 @@
 import db from '../config/sqliteDatabase';
 import { Participant, PendingParticipant } from '../services/participantService'; // Assuming these interfaces are defined there
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 // Helper to convert SQLite row to Participant interface
-const rowToParticipant = (row: any): Participant => {
+const rowToParticipant = (row: any): Participant | null => {
   if (!row) return null;
   return {
     id: row.id,
@@ -23,7 +23,7 @@ const rowToParticipant = (row: any): Participant => {
 };
 
 // Helper to convert SQLite row to PendingParticipant interface
-const rowToPendingParticipant = (row: any): PendingParticipant => {
+const rowToPendingParticipant = (row: any): PendingParticipant | null => {
   if (!row) return null;
   return {
     id: row.id,
@@ -55,9 +55,16 @@ export const findParticipantByEmail = (email: string): Participant | null => {
   return rowToParticipant(row);
 };
 
-export const insertParticipant = (participant: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'>): Participant => {
-  const newId = uuidv4();
-  const now = new Date().toISOString();
+export const insertParticipant = (
+  participant: Omit<Participant, 'id' | 'createdAt' | 'updatedAt'> & {
+    id?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  },
+): Participant => {
+  const newId = participant.id ?? randomUUID();
+  const createdAt = participant.createdAt ?? new Date().toISOString();
+  const updatedAt = participant.updatedAt ?? createdAt;
   const stmt = db.prepare(`
     INSERT INTO participants (
       id, firstName, secondName, email, isChild, primaryGuardianEmail,
@@ -77,10 +84,14 @@ export const insertParticipant = (participant: Omit<Participant, 'id' | 'created
     participant.verificationCodeHash,
     participant.verificationExpiresAt,
     participant.attendingInPerson ? 1 : 0,
-    now,
-    now
+    createdAt,
+    updatedAt
   );
-  return findParticipantById(newId);
+  const inserted = findParticipantById(newId);
+  if (!inserted) {
+    throw new Error('Não foi possível guardar o participante após a inserção.');
+  }
+  return inserted;
 };
 
 export const updateParticipant = (id: string, updates: Partial<Participant>): Participant | null => {
@@ -88,23 +99,24 @@ export const updateParticipant = (id: string, updates: Partial<Participant>): Pa
   const setClauses: string[] = [];
   const params: any[] = [];
 
-  for (const key in updates) {
-    if (updates.hasOwnProperty(key) && key !== 'id' && key !== 'createdAt') {
-      setClauses.push(`${key} = ?`);
-      if (key === 'isChild' || key === 'emailVerified' || key === 'attendingInPerson') {
-        params.push(updates[key] ? 1 : 0);
-      } else if (key === 'guardianEmails') {
-        params.push(updates[key] ? JSON.stringify(updates[key]) : null);
-      } else {
-        params.push(updates[key]);
-      }
+  for (const [key, value] of Object.entries(updates)) {
+    if (key === 'id' || key === 'createdAt') {
+      continue;
+    }
+    setClauses.push(`${key} = ?`);
+    if (key === 'isChild' || key === 'emailVerified' || key === 'attendingInPerson') {
+      params.push(value ? 1 : 0);
+    } else if (key === 'guardianEmails') {
+      params.push(value ? JSON.stringify(value) : null);
+    } else {
+      params.push(value);
     }
   }
   setClauses.push('updatedAt = ?');
   params.push(now);
   params.push(id);
 
-  if (setClauses.length === 0) {
+  if (setClauses.length === 1) {
     return findParticipantById(id);
   }
 
@@ -119,13 +131,17 @@ export const deleteParticipant = (id: string): void => {
 };
 
 export const countParticipants = (): number => {
-  const stmt = db.prepare('SELECT COUNT(*) FROM participants');
-  return stmt.get()['COUNT(*)'];
+  const stmt = db.prepare('SELECT COUNT(*) AS total FROM participants');
+  const row = stmt.get() as { total: number };
+  return row.total;
 };
 
 export const findAllParticipants = (): Participant[] => {
   const stmt = db.prepare('SELECT * FROM participants');
-  return stmt.all().map(rowToParticipant);
+  return stmt
+    .all()
+    .map(rowToParticipant)
+    .filter((participant: Participant | null): participant is Participant => participant !== null);
 };
 
 export const searchParticipantsByNameAndEmail = (term: string): Participant[] => {
@@ -137,7 +153,10 @@ export const searchParticipantsByNameAndEmail = (term: string): Participant[] =>
     ORDER BY firstName, secondName
     LIMIT 15
   `);
-  return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm).map(rowToParticipant);
+  return stmt
+    .all(searchTerm, searchTerm, searchTerm, searchTerm)
+    .map(rowToParticipant)
+    .filter((participant: Participant | null): participant is Participant => participant !== null);
 };
 
 // --- PendingParticipant Repository Functions ---
@@ -155,7 +174,7 @@ export const findPendingParticipantByEmail = (email: string): PendingParticipant
 };
 
 export const insertPendingParticipant = (pendingParticipant: Omit<PendingParticipant, 'id' | 'createdAt' | 'updatedAt'>): PendingParticipant => {
-  const newId = uuidv4();
+  const newId = randomUUID();
   const now = new Date().toISOString();
   const stmt = db.prepare(`
     INSERT INTO pendingParticipants (
@@ -177,7 +196,11 @@ export const insertPendingParticipant = (pendingParticipant: Omit<PendingPartici
     now,
     now
   );
-  return findPendingParticipantById(newId);
+  const inserted = findPendingParticipantById(newId);
+  if (!inserted) {
+    throw new Error('Não foi possível guardar o participante pendente após a inserção.');
+  }
+  return inserted;
 };
 
 export const updatePendingParticipant = (id: string, updates: Partial<PendingParticipant>): PendingParticipant | null => {
@@ -185,17 +208,24 @@ export const updatePendingParticipant = (id: string, updates: Partial<PendingPar
   const setClauses: string[] = [];
   const params: any[] = [];
 
-  for (const key in updates) {
-    if (updates.hasOwnProperty(key) && key !== 'id' && key !== 'createdAt') {
-      setClauses.push(`${key} = ?`);
-      params.push(updates[key]);
+  for (const [key, value] of Object.entries(updates)) {
+    if (key === 'id' || key === 'createdAt') {
+      continue;
+    }
+    setClauses.push(`${key} = ?`);
+    if (key === 'isChild' || key === 'attendingInPerson') {
+      params.push(value ? 1 : 0);
+    } else if (key === 'guardianEmails') {
+      params.push(value ? JSON.stringify(value) : null);
+    } else {
+      params.push(value);
     }
   }
   setClauses.push('updatedAt = ?');
   params.push(now);
   params.push(id);
 
-  if (setClauses.length === 0) {
+  if (setClauses.length === 1) {
     return findPendingParticipantById(id);
   }
 
@@ -215,12 +245,13 @@ export const deletePendingParticipantsByEmail = (email: string): void => {
 };
 
 export const countPendingParticipants = (): number => {
-  const stmt = db.prepare('SELECT COUNT(*) FROM pendingParticipants');
-  return stmt.get()['COUNT(*)'];
+  const stmt = db.prepare('SELECT COUNT(*) AS total FROM pendingParticipants');
+  const row = stmt.get() as { total: number };
+  return row.total;
 };
 
 export const findPendingParticipantByEmailOrGuardianEmail = (email: string): PendingParticipant | null => {
-  const stmt = db.prepare('SELECT * FROM pendingParticipants WHERE email = ?');
-  const row = stmt.get(email);
+  const stmt = db.prepare('SELECT * FROM pendingParticipants WHERE email = ? OR primaryGuardianEmail = ?');
+  const row = stmt.get(email, email);
   return rowToPendingParticipant(row);
 };
