@@ -1,4 +1,13 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 
 type ParticipantState = {
   id: string | null;
@@ -6,15 +15,23 @@ type ParticipantState = {
   isChild: boolean;
   contactEmail: string | null;
   token: string | null;
+  giftListAuthToken: string | null;
 };
 
 type ParticipantContextValue = {
   participant: ParticipantState;
-  setParticipant: (participant: ParticipantState) => void;
+  setParticipant: Dispatch<SetStateAction<ParticipantState>>;
   clearParticipant: () => void;
 };
 
-const defaultState: ParticipantState = { id: null, firstName: null, isChild: false, contactEmail: null, token: null };
+const defaultState: ParticipantState = {
+  id: null,
+  firstName: null,
+  isChild: false,
+  contactEmail: null,
+  token: null,
+  giftListAuthToken: null,
+};
 
 const ParticipantContext = createContext<ParticipantContextValue | undefined>(undefined);
 
@@ -31,7 +48,8 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
           firstName: parsed.firstName ?? null,
           isChild: parsed.isChild ?? false,
           contactEmail: parsed.contactEmail ?? null,
-          token: parsed.token ?? null
+          token: parsed.token ?? null,
+          giftListAuthToken: parsed.giftListAuthToken ?? null,
         };
       } catch (error) {
         console.warn('Não foi possível restaurar o participante salvo', error);
@@ -48,12 +66,19 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [participant]);
 
-  const setParticipant = useCallback((next: ParticipantState): void => setParticipantState(next), []);
-  const clearParticipant = useCallback((): void => setParticipantState(defaultState), []);
+  const setParticipant = useCallback<Dispatch<SetStateAction<ParticipantState>>>(
+    (next) => {
+      setParticipantState(next);
+    },
+    []
+  );
+  const clearParticipant = useCallback((): void => {
+    setParticipantState(() => ({ ...defaultState }));
+  }, []);
 
   const value = useMemo(
     () => ({ participant, setParticipant, clearParticipant }),
-    [participant]
+    [participant, setParticipant, clearParticipant]
   );
 
   return <ParticipantContext.Provider value={value}>{children}</ParticipantContext.Provider>;

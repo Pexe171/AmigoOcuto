@@ -116,7 +116,14 @@ const RegistrationPage: React.FC = () => {
         const response = await api.post('/participants', payload);
         const { id, message } = response.data as { id: string; message: string };
         const contactEmail = data.isChild ? data.primaryGuardianEmail ?? null : data.email ?? null;
-        setParticipant({ id, firstName: firstNameFromForm || data.fullName, isChild: data.isChild, contactEmail });
+        setParticipant({
+          id,
+          firstName: firstNameFromForm || data.fullName,
+          isChild: data.isChild,
+          contactEmail,
+          token: null,
+          giftListAuthToken: null,
+        });
         setRecentRegistration({ id, fullName: data.fullName, contactEmail });
         reset({
           isChild: data.isChild,

@@ -99,6 +99,7 @@ const VerificationPage: React.FC = () => {
         isChild: participant.isChild, // Keep existing isChild from context or fetch if needed
         contactEmail: data.email, // Use the email from the form
         token: null, // No token from /verify endpoint
+        giftListAuthToken: participant.giftListAuthToken ?? null,
       });
 
       show('success', message ?? 'E-mail confirmado com sucesso.');
@@ -134,6 +135,7 @@ const VerificationPage: React.FC = () => {
         isChild: participant.isChild,
         contactEmail: data.newEmail,
         token: participant.token, // Keep existing token
+        giftListAuthToken: participant.giftListAuthToken ?? null,
       });
       
       show('success', 'E-mail atualizado com sucesso. Verifique o novo endereço para o código de verificação.');
