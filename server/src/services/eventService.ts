@@ -9,7 +9,7 @@ import {
   addParticipantToEvent,
 } from '../database/eventRepository';
 import { createEventTicket } from '../database/eventTicketRepository';
-import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
+import { getParticipantOrFail, Participant } from './participantService';
 import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService';
@@ -61,12 +61,24 @@ const ensureNoSelfAssignment = <T extends { id: string }>(participants: T[]): T[
 export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<EventDocument> => {
   const data = eventSchema.parse(input);
 
-  const participantIds = data.participantIds ?? (await listVerifiedParticipants()).map((p) => p.id);
-  if (participantIds.length < 2) {
-    throw new Error('Cadastre pelo menos dois participantes verificados antes de criar o evento.');
+  const participantIds = data.participantIds ?? [];
+
+  if (participantIds.length === 0) {
+    return insertEvent({
+      name: data.name,
+      participants: [],
+      status: 'ativo',
+    });
   }
 
-  const uniqueIds = Array.from(new Set(participantIds));
+  const participants = await Promise.all(participantIds.map((id) => getParticipantOrFail(id)));
+  const verifiedParticipants = participants.filter((participant) => participant.emailVerified);
+
+  if (verifiedParticipants.length < 2) {
+    throw new Error('Selecione pelo menos dois participantes verificados para criar o evento.');
+  }
+
+  const uniqueIds = Array.from(new Set(verifiedParticipants.map((participant) => participant.id)));
 
   return insertEvent({
     name: data.name,
