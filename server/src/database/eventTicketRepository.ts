@@ -63,3 +63,12 @@ export const deleteTicketsByEventId = (eventId: string): void => {
   const stmt = db.prepare('DELETE FROM eventTickets WHERE eventId = ?');
   stmt.run(eventId);
 };
+
+export const deleteEventTickets = (ticketIds: string[]): void => {
+  if (ticketIds.length === 0) {
+    return;
+  }
+  const placeholders = ticketIds.map(() => '?').join(',');
+  const stmt = db.prepare(`DELETE FROM eventTickets WHERE id IN (${placeholders})`);
+  stmt.run(...ticketIds);
+};

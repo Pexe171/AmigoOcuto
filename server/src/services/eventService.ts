@@ -7,10 +7,12 @@ import {
   appendDrawHistoryEntry,
   EventRecord,
   addParticipantToEvent,
+  removeParticipantFromEvent,
+  removeLastDrawHistoryEntry,
 } from '../database/eventRepository';
-import { createEventTicket } from '../database/eventTicketRepository';
+import { createEventTicket, deleteEventTickets } from '../database/eventTicketRepository';
 import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
-import { sendDrawEmail } from './emailService';
+import { sendDrawEmail, sendDrawCancellationEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService';
 
@@ -61,10 +63,9 @@ const ensureNoSelfAssignment = <T extends { id: string }>(participants: T[]): T[
 export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<EventDocument> => {
   const data = eventSchema.parse(input);
 
-  const participantIds = data.participantIds ?? (await listVerifiedParticipants()).map((p) => p.id);
-  if (participantIds.length < 2) {
-    throw new Error('Cadastre pelo menos dois participantes verificados antes de criar o evento.');
-  }
+  // Use provided participant IDs or default to an empty array.
+  // This allows creating an event even if there are no verified participants yet.
+  const participantIds = data.participantIds ?? [];
 
   const uniqueIds = Array.from(new Set(participantIds));
 
@@ -199,6 +200,50 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
   return { event: updated, tickets: createdTicketIds.length };
 };
 
+export const undoLastDraw = async (input: z.infer<typeof drawSchema>): Promise<EventDocument> => {
+  const data = drawSchema.parse(input);
+  const event = findEventById(data.eventId);
+  if (!event) {
+    throw new Error('Evento não encontrado.');
+  }
+  if (event.status === 'ativo') {
+    throw new Error('Não há sorteio para desfazer neste evento.');
+  }
+  if (event.drawHistory.length === 0) {
+    throw new Error('Não há histórico de sorteio para desfazer.');
+  }
+
+  const lastDraw = event.drawHistory[event.drawHistory.length - 1]!;
+  const ticketIds = lastDraw.tickets;
+
+  // Delete the tickets
+  deleteEventTickets(ticketIds);
+
+  // Remove the last draw history entry
+  const updatedEvent = removeLastDrawHistoryEntry(data.eventId);
+  if (!updatedEvent) {
+    throw new Error('Não foi possível atualizar o evento após desfazer o sorteio.');
+  }
+
+  // Send cancellation emails to all participants
+  const participants = await Promise.all(event.participants.map((id) => getParticipantOrFail(id)));
+  const verifiedParticipants = participants.filter((participant) => participant.emailVerified);
+
+  for (const participant of verifiedParticipants) {
+    await sendDrawCancellationEmail({
+      id: participant.id,
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+      isChild: participant.isChild,
+      email: participant.email ?? null,
+      primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+      guardianEmails: participant.guardianEmails ?? null,
+    });
+  }
+
+  return updatedEvent;
+};
+
 export const getEventHistory = async (eventId: string): Promise<{
   name: string;
   status: string;
@@ -223,5 +268,12 @@ export const includeParticipantInEvent = (eventId: string, participantId: string
   const updated = addParticipantToEvent(eventId, participantId);
   if (!updated) {
     throw new Error('Evento não encontrado para associar participante.');
+  }
+};
+
+export const excludeParticipantFromEvent = (eventId: string, participantId: string): void => {
+  const updated = removeParticipantFromEvent(eventId, participantId);
+  if (!updated) {
+    throw new Error('Evento não encontrado para remover participante.');
   }
 };

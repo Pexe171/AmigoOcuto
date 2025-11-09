@@ -185,6 +185,34 @@ export const sendDrawEmail = async (
   });
 };
 
+export const sendDrawCancellationEmail = async (
+  participant: ParticipantEmailData,
+): Promise<void> => {
+  const recipientEmails = resolveRecipients(participant);
+  if (recipientEmails.length === 0) {
+    return;
+  }
+
+  const mainRecipient = resolveMainRecipient(participant, recipientEmails);
+  const greeting = mainRecipient
+    ? `Estamos escrevendo para ${mainRecipient}.`
+    : 'Estamos escrevendo para os contatos cadastrados.';
+
+  const html = `
+    <p>Olá ${participant.firstName},</p>
+    <p>${greeting}</p>
+    <p>O sorteio do Amigo Ocuto foi cancelado devido a um erro administrativo.</p>
+    <p>Por favor, desconsidere qualquer e-mail anterior sobre o sorteio e aguarde novas instruções.</p>
+    <p>Pedimos desculpas pelo inconveniente.</p>
+  `;
+
+  await mailer.sendMail({
+    to: recipientEmails,
+    subject: 'Cancelamento do sorteio do Amigo Ocuto',
+    html,
+  });
+};
+
 export const sendTestEmailToParticipant = async (
   participant: ParticipantEmailData,
   recipients: string[],

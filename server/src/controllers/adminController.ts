@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { createEvent, listEvents, cancelEvent, drawEvent, getEventHistory } from '../services/eventService';
+import { createEvent, listEvents, cancelEvent, drawEvent, undoLastDraw, getEventHistory, includeParticipantInEvent, excludeParticipantFromEvent } from '../services/eventService';
 import { env } from '../config/environment';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
@@ -169,6 +169,23 @@ export const runDraw = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const undoDraw = async (req: Request, res: Response): Promise<void> => {
+  const { eventId } = req.params;
+  if (!eventId) {
+    res.status(400).json({ message: 'Informe o identificador do evento.' });
+    return;
+  }
+  try {
+    const event = await undoLastDraw({ eventId });
+    res.json({
+      message: 'Último sorteio desfeito com sucesso. Os participantes foram notificados por e-mail.',
+      event: { id: event.id, status: event.status }
+    });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+};
+
 export const getHistory = async (req: Request, res: Response): Promise<void> => {
   const { eventId } = req.params;
   if (!eventId) {
@@ -193,5 +210,33 @@ export const triggerTestEmails = async (_req: Request, res: Response): Promise<v
     });
   } catch (error) {
     res.status(500).json({ message: (error as Error).message });
+  }
+};
+
+export const addParticipantToEvent = (req: Request, res: Response): void => {
+  const { eventId, participantId } = req.params;
+  if (!eventId || !participantId) {
+    res.status(400).json({ message: 'Informe os identificadores do evento e do participante.' });
+    return;
+  }
+  try {
+    includeParticipantInEvent(eventId, participantId);
+    res.json({ message: 'Participante adicionado ao evento com sucesso.' });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+};
+
+export const removeParticipantFromEvent = (req: Request, res: Response): void => {
+  const { eventId, participantId } = req.params;
+  if (!eventId || !participantId) {
+    res.status(400).json({ message: 'Informe os identificadores do evento e do participante.' });
+    return;
+  }
+  try {
+    excludeParticipantFromEvent(eventId, participantId);
+    res.json({ message: 'Participante removido do evento com sucesso.' });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
   }
 };

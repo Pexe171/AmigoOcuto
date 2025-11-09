@@ -1,0 +1,1 @@
+INSERT INTO giftLists (id, participantId, items, createdAt, updatedAt) VALUES ('gift_david', '5b1869ca-0746-4b15-9d90-918a8d9a96dc', '[{ "id":"gift1", "name":"Presente 1", "url":"", "notes":"", "purchased":false }]', '2025-11-09 22:00:00', '2025-11-09 22:00:00');

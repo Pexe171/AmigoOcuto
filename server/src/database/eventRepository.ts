@@ -89,7 +89,6 @@ export const insertEvent = (params: {
   drawHistory?: DrawHistoryEntry[];
 }): EventRecord => {
   const id = params.id ?? randomUUID();
-  const now = new Date();
   const status = params.status ?? 'ativo';
   const participants = params.participants ?? [];
   const drawHistory = params.drawHistory ?? [];
@@ -100,10 +99,8 @@ export const insertEvent = (params: {
       name,
       status,
       participants,
-      drawHistory,
-      createdAt,
-      updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      drawHistory
+    ) VALUES (?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -111,9 +108,7 @@ export const insertEvent = (params: {
     params.name,
     status,
     serializeParticipants(participants),
-    serializeDrawHistory(drawHistory),
-    now.toISOString(),
-    now.toISOString(),
+    serializeDrawHistory(drawHistory)
   );
 
   const inserted = findEventById(id);
@@ -187,6 +182,16 @@ export const addParticipantToEvent = (eventId: string, participantId: string): E
   return updateEvent(eventId, { participants: event.participants });
 };
 
+export const removeParticipantFromEvent = (eventId: string, participantId: string): EventRecord | null => {
+  const event = findEventById(eventId);
+  if (!event) {
+    return null;
+  }
+
+  const updatedParticipants = event.participants.filter(id => id !== participantId);
+  return updateEvent(eventId, { participants: updatedParticipants });
+};
+
 export const appendDrawHistoryEntry = (
   eventId: string,
   entry: DrawHistoryEntry,
@@ -198,4 +203,19 @@ export const appendDrawHistoryEntry = (
 
   const updatedHistory = [...event.drawHistory, entry];
   return updateEvent(eventId, { drawHistory: updatedHistory, status: 'sorteado' });
+};
+
+export const removeLastDrawHistoryEntry = (eventId: string): EventRecord | null => {
+  const event = findEventById(eventId);
+  if (!event) {
+    return null;
+  }
+
+  if (event.drawHistory.length === 0) {
+    return event;
+  }
+
+  const updatedHistory = event.drawHistory.slice(0, -1);
+  const newStatus = updatedHistory.length === 0 ? 'ativo' : 'sorteado';
+  return updateEvent(eventId, { drawHistory: updatedHistory, status: newStatus });
 };
