@@ -118,7 +118,7 @@ export const deleteParticipant = (req: Request, res: Response): void => {
 export const createNewEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const event = await createEvent(req.body);
-    res.status(201).json({ id: event.id, name: event.name, status: event.status });
+    res.status(201).json({ id: event.id, name: event.name, location: event.location, status: event.status });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
@@ -130,6 +130,7 @@ export const listAllEvents = async (_req: Request, res: Response): Promise<void>
     events.map((event) => ({
       id: event.id,
       name: event.name,
+      location: event.location,
       status: event.status,
       participantes: event.participants.length,
       sorteios: event.drawHistory.length,
@@ -146,7 +147,7 @@ export const cancelExistingEvent = async (req: Request, res: Response): Promise<
   }
   try {
     const event = await cancelEvent(eventId);
-    res.json({ id: event.id, name: event.name, status: event.status });
+    res.json({ id: event.id, name: event.name, location: event.location, status: event.status });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }

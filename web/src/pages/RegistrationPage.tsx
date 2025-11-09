@@ -24,6 +24,7 @@ const guardianSchema = z.object({
 type EventOption = {
   id: string;
   name: string;
+  location?: string | null;
   status: string;
   participantCount: number;
   createdAt?: string;
@@ -127,6 +128,7 @@ const RegistrationPage: React.FC = () => {
         const events = (response.data as EventOption[]).map((event) => ({
           id: event.id,
           name: event.name,
+          location: event.location ?? null,
           status: event.status,
           participantCount: event.participantCount ?? 0,
         }));
@@ -275,12 +277,13 @@ const RegistrationPage: React.FC = () => {
                 return (
                   <option key={event.id} value={event.id}>
                     {event.name} · {participantLabel}
+                    {event.location ? ` · Local: ${event.location}` : ''}
                   </option>
                 );
               })}
             </select>
             <p className="text-sm text-white/70">
-              Se preferir, deixe em branco e nossa equipe encaixa você automaticamente.
+              Se preferir, deixe em branco e nossa equipe encaixa você automaticamente. Quando disponível, mostramos o local da festa ao lado do nome.
             </p>
           </div>
         )}

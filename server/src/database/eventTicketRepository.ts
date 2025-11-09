@@ -56,7 +56,7 @@ export const findTicketsByEventId = (eventId: string): EventTicket[] => {
   return stmt
     .all(eventId)
     .map(rowToTicket)
-    .filter((ticket): ticket is EventTicket => ticket !== null);
+    .filter((ticket: EventTicket | null): ticket is EventTicket => ticket !== null);
 };
 
 export const deleteTicketsByEventId = (eventId: string): void => {

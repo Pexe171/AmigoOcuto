@@ -55,6 +55,7 @@ function initializeDatabase() {
         CREATE TABLE IF NOT EXISTS events (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            location TEXT,
             status TEXT NOT NULL DEFAULT 'ativo',
             participants TEXT NOT NULL DEFAULT '[]',
             drawHistory TEXT NOT NULL DEFAULT '[]',
@@ -64,6 +65,9 @@ function initializeDatabase() {
     `);
 
     const eventColumns = db.prepare('PRAGMA table_info(events)').all() as { name: string }[];
+    if (!eventColumns.some((column) => column.name === 'location')) {
+        db.exec('ALTER TABLE events ADD COLUMN location TEXT');
+    }
     if (!eventColumns.some((column) => column.name === 'status')) {
         db.exec("ALTER TABLE events ADD COLUMN status TEXT NOT NULL DEFAULT 'ativo'");
     }

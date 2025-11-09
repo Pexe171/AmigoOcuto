@@ -50,7 +50,7 @@ export const findGiftListsByParticipantIds = (participantIds: string[]): GiftLis
     return stmt
       .all(...participantIds)
       .map(rowToGiftList)
-      .filter((list): list is GiftList => list !== null);
+      .filter((list: GiftList | null): list is GiftList => list !== null);
   } catch (error) {
     console.error(`Error in findGiftListsByParticipantIds for participantIds ${participantIds.join(', ')}:`, error);
     throw error;
