@@ -9,6 +9,7 @@ import {
   addParticipantToEvent,
   removeParticipantFromEvent,
   removeLastDrawHistoryEntry,
+  deleteEvent as deleteEventFromRepo,
 } from '../database/eventRepository';
 import { createEventTicket, deleteEventTickets } from '../database/eventTicketRepository';
 import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
@@ -307,5 +308,19 @@ export const excludeParticipantFromEvent = (eventId: string, participantId: stri
   const updated = removeParticipantFromEvent(eventId, participantId);
   if (!updated) {
     throw new Error('Evento não encontrado para remover participante.');
+  }
+};
+
+export const deleteEvent = async (eventId: string): Promise<void> => {
+  const event = findEventById(eventId);
+  if (!event) {
+    throw new Error('Evento não encontrado.');
+  }
+  if (event.status !== 'cancelado') {
+    throw new Error('Apenas eventos cancelados podem ser deletados.');
+  }
+  const deleted = deleteEventFromRepo(eventId);
+  if (!deleted) {
+    throw new Error('Não foi possível deletar o evento.');
   }
 };

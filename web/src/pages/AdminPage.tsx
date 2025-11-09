@@ -236,6 +236,23 @@ const AdminPage: React.FC = () => {
     }
   });
 
+  const deleteEventMutation = useMutation<{ message: string }, unknown, string>({
+    mutationFn: async (eventId) => {
+      const response = await api.delete(`/admin/events/${eventId}`, axiosAuthConfig);
+      return response.data as { message: string };
+    },
+    onSuccess: (_data, eventId) => {
+      show('success', `Evento deletado com sucesso.`);
+      void eventsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
+  });
+
   const addParticipantToEventMutation = useMutation<{ message: string }, unknown, { eventId: string; participantId: string }>({
     mutationFn: async ({ eventId, participantId }) => {
       const response = await api.post(`/admin/events/${eventId}/participants/${participantId}`, null, axiosAuthConfig);
@@ -358,7 +375,10 @@ const AdminPage: React.FC = () => {
 
   const participantStats = useMemo(() => {
     const total = participants.length;
-    const verified = participants.filter((participant) => participant.emailVerified).length;
+    const verified = participants.reduce((sum, participant) => {
+      if (!participant.emailVerified) return sum;
+      return sum + participant.contactEmails.length;
+    }, 0);
     const totalEmails = participants.reduce((sum, participant) => sum + participant.contactEmails.length, 0);
     const attendingInPerson = participants.filter((participant) => participant.attendingInPerson).length;
     return { total, verified, totalEmails, attendingInPerson };
@@ -381,9 +401,6 @@ const AdminPage: React.FC = () => {
     }
     if (event.participantes < 2) {
       return { disabled: true, reason: 'É necessário ter pelo menos duas pessoas confirmadas.' };
-    }
-    if (event.participantes % 2 !== 0) {
-      return { disabled: true, reason: 'Confirme um número par de participantes antes de sortear.' };
     }
     return { disabled: false };
   };
@@ -712,7 +729,18 @@ const AdminPage: React.FC = () => {
                           <td className="px-4 py-3">{event.sorteios}</td>
                           <td className="px-4 py-3">
                             {event.status === 'cancelado' ? (
-                              <span className="text-red-400/90">Esse evento foi cancelado</span>
+                              <button
+                                type="button"
+                                className={dangerButtonClass}
+                                onClick={() => {
+                                  if (window.confirm(`Tem certeza que deseja deletar o evento "${event.name}"? Esta ação não pode ser desfeita.`)) {
+                                    deleteEventMutation.mutate(event.id);
+                                  }
+                                }}
+                                disabled={deleteEventMutation.isPending}
+                              >
+                                {deleteEventMutation.isPending ? 'Deletando...' : 'Deletar'}
+                              </button>
                             ) : (
                               <div className="flex flex-wrap gap-2">
                                 <button

@@ -229,3 +229,9 @@ export const removeLastDrawHistoryEntry = (eventId: string): EventRecord | null 
   const newStatus = updatedHistory.length === 0 ? 'ativo' : 'sorteado';
   return updateEvent(eventId, { drawHistory: updatedHistory, status: newStatus });
 };
+
+export const deleteEvent = (id: string): boolean => {
+  const stmt = db.prepare('DELETE FROM events WHERE id = ?');
+  const result = stmt.run(id);
+  return result.changes > 0;
+};

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { createEvent, listEvents, cancelEvent, drawEvent, undoLastDraw, getEventHistory, includeParticipantInEvent, excludeParticipantFromEvent } from '../services/eventService';
+import { createEvent, listEvents, cancelEvent, drawEvent, undoLastDraw, getEventHistory, includeParticipantInEvent, excludeParticipantFromEvent, deleteEvent } from '../services/eventService';
 import { findEventById } from '../database/eventRepository';
 import { env } from '../config/environment';
 import jwt, { JwtPayload } from 'jsonwebtoken';
@@ -257,5 +257,19 @@ export const getEventDetails = async (req: Request, res: Response): Promise<void
     res.json(event);
   } catch (error) {
     res.status(404).json({ message: (error as Error).message });
+  }
+};
+
+export const deleteExistingEvent = async (req: Request, res: Response): Promise<void> => {
+  const { eventId } = req.params;
+  if (!eventId) {
+    res.status(400).json({ message: 'Informe o identificador do evento.' });
+    return;
+  }
+  try {
+    await deleteEvent(eventId);
+    res.json({ message: 'Evento deletado com sucesso.' });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
   }
 };

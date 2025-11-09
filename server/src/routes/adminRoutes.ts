@@ -13,7 +13,8 @@ import {
   triggerTestEmails,
   addParticipantToEvent,
   removeParticipantFromEvent,
-  getEventDetails
+  getEventDetails,
+  deleteExistingEvent
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
@@ -34,5 +35,6 @@ router.get('/events/:eventId/history', getHistory);
 router.get('/events/:eventId', getEventDetails);
 router.post('/events/:eventId/participants/:participantId', addParticipantToEvent);
 router.delete('/events/:eventId/participants/:participantId', removeParticipantFromEvent);
+router.delete('/events/:eventId', deleteExistingEvent);
 
 export default router;
