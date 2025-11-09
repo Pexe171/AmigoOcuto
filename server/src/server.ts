@@ -2,10 +2,15 @@ import http from 'http';
 import app from './app';
 import { env } from './config/environment';
 import sqliteDb from './config/sqliteDatabase'; // Import the SQLite database instance
+import { connectDatabase } from './config/database';
 
 const start = async (): Promise<void> => {
   try {
-    // No need to call connectDatabase() for SQLite, as it's initialized on import
+    // Inicializa o MongoDB (com fallback para instância em memória, se necessário)
+    await connectDatabase();
+    console.log('✅ Conexão com MongoDB estabelecida.');
+
+    // No need to call anything for SQLite, as it's initialized on import
     // You can add a simple check or log here if needed
     console.log('✅ SQLite database ready.');
 
