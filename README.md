@@ -11,6 +11,7 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 - **Sorteio sigiloso** realizado via painel administrativo. O histórico registra tickets emitidos sem revelar quem tirou quem.
 - **Consulta rápida do sorteio**: cada participante utiliza nome ou ID para acessar a lista de presentes do sorteado sem quebrar o segredo.
 - **Notificações por e-mail** configuráveis via SMTP ou modo console para ambientes de teste.
+- **Comunicações festivas** com e-mails temáticos de Natal, animação de neve e visual alinhado ao portal.
 
 ## Estrutura do projeto
 
