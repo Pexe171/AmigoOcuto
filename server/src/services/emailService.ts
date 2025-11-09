@@ -14,7 +14,6 @@ type EmailTemplateOptions = {
 };
 
 const defaultFooterNotes = [
-  'Se tiver alguma dúvida, basta responder a este e-mail e iremos ajudar.',
   'Abraços da equipa do Amigo Ocuto.',
 ];
 
