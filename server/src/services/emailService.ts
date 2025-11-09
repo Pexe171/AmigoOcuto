@@ -1,6 +1,6 @@
 // Este ficheiro deve estar em server/src/services/emailService.ts
 import { mailer } from '../config/mailer';
-import { GiftItem } from '../models/GiftList';
+import { GiftItem } from '../database/giftListRepository';
 
 const paragraphStyle = 'margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #1f2a1f;';
 const subtleTextStyle = 'margin: 0; font-size: 14px; line-height: 1.5; color: #365949;';
@@ -263,7 +263,6 @@ export const sendVerificationEmail = async (
 export const sendDrawEmail = async (
   participant: ParticipantEmailData,
   assigned: ParticipantEmailData,
-  ticketCode: string,
   gifts: GiftItem[],
   eventInfo: { name: string; location: string | null },
 ): Promise<void> => {
@@ -305,7 +304,8 @@ export const sendDrawEmail = async (
           ${gifts
             .map((gift) => {
               const priority = gift.priority ? ` (prioridade ${gift.priority})` : '';
-              const description = gift.description ? ` – ${gift.description}` : '';
+              const notes = gift.description ?? gift.notes;
+              const description = notes ? ` – ${notes}` : '';
               const link = gift.url
                 ? ` – <a href="${gift.url}" style="color: #4f46e5; text-decoration: underline;">${gift.url}</a>`
                 : '';
@@ -315,20 +315,26 @@ export const sendDrawEmail = async (
         </ul>
       `;
 
+  const assignmentHighlightHtml = `
+    <div style="margin: 24px 0; padding: 24px; border: 1px solid rgba(185, 28, 28, 0.35); background: linear-gradient(160deg, rgba(254, 202, 202, 0.95), rgba(252, 165, 165, 0.9)); border-radius: 18px; box-shadow: 0 18px 40px rgba(153, 27, 27, 0.22);">
+      <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.08em;">
+        Seu amigo oculto
+      </p>
+      <p style="${paragraphStyle} margin-bottom: 8px; color: #7f1d1d;">
+        Você presenteia <strong>${assignedFullName}</strong>.
+      </p>
+      <p style="${paragraphStyle} margin-bottom: 0; color: #7f1d1d;">
+        ID para guardar: <strong>${assignedId}</strong>
+      </p>
+    </div>
+  `;
+
   const content = `
     <p style="${paragraphStyle}">${greeting}</p>
     ${eventDetailsHtml}
-    <div style="margin: 24px 0; padding: 24px; border: 1px solid rgba(185, 28, 28, 0.35); background: linear-gradient(160deg, rgba(254, 202, 202, 0.95), rgba(252, 165, 165, 0.9)); border-radius: 18px; box-shadow: 0 18px 40px rgba(153, 27, 27, 0.22);">
-      <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.08em;">
-        Ticket do sorteio
-      </p>
-      <p style="margin: 0 0 16px; font-size: 28px; font-weight: 700; color: #7f1d1d; letter-spacing: 0.08em;">${ticketCode}</p>
-      <p style="${paragraphStyle} margin-bottom: 0; color: #7f1d1d;">Guarde este código. Ele dá acesso rápido à lista do seu amigo oculto.</p>
-    </div>
-    <p style="${paragraphStyle}">Você presenteia <strong>${assignedFullName}</strong>.</p>
-    <p style="${paragraphStyle}">ID do seu amigo oculto: <strong>${assignedId}</strong>.</p>
+    ${assignmentHighlightHtml}
     ${giftItemsHtml}
-    <p style="${paragraphStyle}">Sempre que precisar, utilize o ticket <strong>${ticketCode}</strong> ou o ID indicado para rever as informações no portal.</p>
+    <p style="${paragraphStyle}">Guarde este e-mail. O ID do seu amigo oculto é suficiente para rever as informações sempre que precisar.</p>
   `;
 
   const preheaderLocation = eventInfo.location
@@ -337,7 +343,7 @@ export const sendDrawEmail = async (
 
   const html = renderEmailTemplate({
     title: 'Seu sorteio do Amigo Ocuto',
-    preheader: `O sorteio do evento ${eventInfo.name} foi realizado.${preheaderLocation} Guarde o ticket ${ticketCode}.`,
+    preheader: `O sorteio do evento ${eventInfo.name} foi realizado.${preheaderLocation} Descubra quem você presenteia.`,
     greeting: `Olá ${participant.firstName},`,
     content,
   });

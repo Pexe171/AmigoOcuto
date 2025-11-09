@@ -1,17 +1,16 @@
 # Amigo Ocuto
 
-Plataforma profissional para organizar seu encontro de amigo oculto. O sistema é composto por uma API Node.js com persistência em SQLite (arquivo local, sem necessidade de serviços externos) e uma interface web moderna construída com React e Vite.
+Plataforma profissional para organizar o seu encontro de amigo oculto. O projeto combina uma API Node.js com persistência em SQLite (arquivo local, sem serviços externos) e uma interface web moderna construída com React e Vite.
 
-> **Persistência garantida:** todos os cadastros — participantes, listas de presentes e eventos — são gravados em `server/data/database.db`. Reiniciar o servidor não apaga os dados.
+> **Persistência garantida:** todos os cadastros — participantes, listas de presentes e eventos — ficam gravados em `server/data/database.db`. Reiniciar o servidor não apaga as informações.
 
 ## Visão geral
 
-- **Inscrições inteligentes** para adultos e crianças, com validação automática de e-mail e coleta opcional de apelido.
-- **Listas de presentes integradas** para cada participante, com prioridade, descrições e links.
-- **Sorteio sigiloso** realizado via painel administrativo. O histórico registra tickets emitidos sem revelar quem tirou quem.
-- **Consulta rápida do sorteio**: cada participante utiliza nome ou ID para acessar a lista de presentes do sorteado sem quebrar o segredo.
-- **Notificações por e-mail** configuráveis via SMTP ou modo console para ambientes de teste.
-- **Comunicações festivas** com e-mails temáticos de Natal, animação de neve e visual alinhado ao portal.
+- **Inscrições inteligentes** para adultos e crianças, com validação automática de e-mail e suporte a responsáveis.
+- **Listas de presentes completas** por participante, com prioridades, descrições e links para compras online.
+- **Painel administrativo centralizado** para criar eventos, acompanhar confirmações, validar listas e disparar o sorteio.
+- **E-mails temáticos de Natal** que comunicam códigos de verificação, acessos e o resultado do sorteio com clareza.
+- **Infra simples de operar** graças ao SQLite local: nenhum servidor de banco de dados precisa ser instalado.
 
 ## Estrutura do projeto
 
@@ -23,8 +22,8 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
 ## Pré-requisitos
 
-- Node.js 18+
-- SQLite (já embutido via `better-sqlite3`, sem configuração adicional)
+- Node.js 18 ou superior.
+- npm (instala automaticamente todas as dependências dos workspaces `server` e `web`).
 
 ## Configuração da API (`server`)
 
@@ -34,30 +33,28 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
    cp server/.env.example server/.env
    ```
 
-2. Ajuste as variáveis no `.env`:
+2. Ajuste os valores no `.env`:
 
-   - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: credenciais utilizadas para acessar o painel administrativo.
-   - `ADMIN_JWT_SECRET`: segredo utilizado para assinar os tokens de sessão do painel.
+   - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: credenciais para acessar o painel administrativo.
+   - `ADMIN_JWT_SECRET`: segredo usado na geração dos tokens de sessão do painel.
    - `ADMIN_SESSION_MINUTES`: duração (em minutos) das sessões administrativas.
-   - Para enviar e-mails reais, defina `MAILER_MODE=smtp` e configure também `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `MAIL_FROM`.
-   - Se for usar Gmail, gere uma [senha de app](https://myaccount.google.com/apppasswords) após ativar a verificação em duas etapas e utilize-a em `SMTP_PASS`.
+   - Para enviar e-mails reais, altere `MAILER_MODE` para `smtp` e configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `MAIL_FROM`.
+   - Usando Gmail? Ative a verificação em duas etapas, gere uma [senha de app](https://myaccount.google.com/apppasswords) e coloque o valor em `SMTP_PASS`.
 
-   > **Dica:** Para facilitar o desenvolvimento local, a API usa `mongodb://127.0.0.1:27017` com o banco `amigoocuto`, além das credenciais administrativas padrão (`admin@amigoocuto.com` / `troque-esta-senha`). Ainda assim, personalize essas informações antes de subir o projeto para produção.
-   >
-   > Se o MongoDB configurado não estiver acessível, o backend tentará automaticamente iniciar uma instância em memória (somente fora de produção) e informará isso no console. Você também pode habilitar esse comportamento diretamente ativando `MONGO_IN_MEMORY=true` no `.env`.
+   > **Banco de dados pronto para uso:** a API cria automaticamente o arquivo `server/data/database.db`. Não há variáveis relacionadas a MongoDB ou servidores externos — tudo roda localmente via SQLite.
 
-3. Instale dependências e inicie o servidor em modo desenvolvimento:
+3. Instale as dependências e inicie o servidor em modo desenvolvimento:
 
    ```bash
    npm install
    npm run dev:server
    ```
 
-   O comando `npm install` na raiz instala as dependências de ambos os pacotes graças ao uso de workspaces.
+   O comando `npm install` na raiz aproveita os workspaces e instala pacotes tanto do backend quanto do frontend.
 
-   > Para levantar backend e frontend juntos, utilize `npm run dev`, que executa `server` e `web` em paralelo.
+   > Para levantar backend e frontend juntos, use `npm run dev`, que executa `server` e `web` em paralelo.
 
-4. Para gerar a versão compilada:
+4. Para gerar a versão compilada da API:
 
    ```bash
    npm run build
@@ -65,57 +62,52 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
 ## Configuração da interface web (`web`)
 
-Com as dependências já instaladas na etapa anterior, você pode subir apenas a interface com:
+Com as dependências já instaladas, suba apenas a interface com:
 
 ```bash
 npm run dev:web
 ```
 
-A aplicação estará disponível em `http://localhost:5173`, com proxy configurado para encaminhar as requisições `/api` ao servidor backend (`http://localhost:4000`).
+A aplicação fica disponível em `http://localhost:5173`, com proxy configurado para encaminhar as requisições `/api` ao servidor backend (`http://localhost:4000`).
 
-Se preferir subir ambos os serviços com um único comando, basta executar `npm run dev` na raiz do projeto.
+Se preferir subir ambos os serviços com um único comando, execute `npm run dev` na raiz do projeto.
 
-Para gerar build de produção:
+Para gerar o build de produção da interface:
 
 ```bash
 npm --prefix web run build
 ```
 
-> **Compatibilidade com Windows:** configuramos o Vite para utilizar automaticamente a versão JavaScript do Rollup.
-> Assim, mesmo que o npm falhe ao baixar o pacote opcional `@rollup/rollup-win32-x64-msvc`, o `npm run dev` continua funcionando normalmente.
+> **Compatibilidade com Windows:** o Vite usa automaticamente a versão JavaScript do Rollup. Assim, mesmo que o npm não baixe o pacote opcional `@rollup/rollup-win32-x64-msvc`, o `npm run dev` continua funcionando normalmente.
 
 ## Fluxo de uso
 
 1. **Inscrição**
-   - Acesse `/inscricao` e preencha o formulário. Adultos informam o próprio e-mail; crianças primeiro selecionam a opção "é criança" e registram os responsáveis.
-   - Caso já exista pelo menos um evento ativo, a tela exibe um seletor opcional para você escolher em qual festa deseja participar.
-   - Cada opção mostra o número de participantes confirmados e, sempre que o organizador informar, o local da celebração.
+   - Acesse `/inscricao` e preencha o formulário. Adultos informam o próprio e-mail; crianças ativam a opção "é criança" para registrar responsáveis.
+   - Se existir algum evento ativo, a tela mostra um seletor opcional para escolher a festa desejada, com contagem de confirmados e local informado pelo organizador.
    - Um código de verificação é enviado ao e-mail principal (do participante adulto ou do responsável).
 
 2. **Confirmação de e-mail**
-   - Após finalizar a inscrição, você será redirecionado automaticamente para `/confirmacao`.
-   - Informe o ID da inscrição (retornado pelo backend) e o código recebido por e-mail para concluir a validação.
-   - Somente após essa confirmação os dados são persistidos na coleção principal; inscrições pendentes podem refazer o processo sem bloquear o e-mail.
+   - Após a inscrição, o sistema redireciona automaticamente para `/confirmacao`.
+   - Informe o ID da inscrição retornado pelo backend e o código recebido por e-mail para concluir a validação.
+   - Apenas inscrições confirmadas são movidas para a base principal; cadastros pendentes podem repetir o processo sem travar o endereço.
 
 3. **Lista de presentes**
-   - Clique em **Construir Lista** na página inicial (ou acesse diretamente `/login`). Primeiro informe o e-mail confirmado na inscrição para receber um código temporário e, em seguida, valide o código para entrar.
-   - Após o login, você será levado ao painel `/listas`, com indicadores de progresso, resumo do cadastro e atalhos para adicionar, marcar ou remover itens em tempo real. Somente participantes com e-mail verificado têm a lista persistida na base oficial.
-   - O e-mail automático que entrega o código informa claramente que se trata do acesso à lista de presentes e indica qual endereço recebeu a mensagem, facilitando a identificação pelos participantes.
+   - Clique em **Construir Lista** na página inicial (ou acesse diretamente `/login`). Primeiro informe o e-mail validado para receber um código temporário; depois valide o código para entrar.
+   - O painel `/listas` traz indicadores de progresso, resumo do cadastro e atalhos para adicionar, marcar ou remover itens em tempo real.
+   - O e-mail que entrega o código deixa claro qual endereço recebeu a mensagem, facilitando a identificação pelos participantes.
 
 4. **Painel administrativo**
-  - Em `/admin`, autentique-se com o e-mail e a senha configurados nas variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
-  - Consulte a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
-   - Acompanhe os eventos existentes e, quando todos os participantes estiverem verificados em número par, execute o sorteio com um único clique.
-   - Ao criar um novo evento, registre também o local da festa para que ele seja incluído automaticamente nos e-mails do sorteio.
-   - Antes do sorteio, o sistema agora verifica automaticamente se todas as pessoas confirmadas no evento já cadastraram a lista de presentes.
-   - Verifique o histórico de sorteios de cada evento. Todas as ações são de consulta, exceto o disparo do sorteio.
-   - Dispare um e-mail de teste para todos os contatos confirmados antes do sorteio oficial e valide rapidamente as credenciais SMTP.
-   - Opcionalmente, utilize `/adm` para exibir o protótipo visual do portal corporativo ADM.
+   - Em `/admin`, faça login com as credenciais configuradas nas variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
+   - Acompanhe todas as inscrições confirmadas, inclusive presença, responsáveis e itens cadastrados.
+   - Crie e edite eventos, definindo o local da festa. Quando todos estiverem verificados em número par, execute o sorteio com um clique.
+   - Antes de sortear, o sistema garante que todas as pessoas do evento já montaram suas listas de presentes.
+   - Consulte o histórico de sorteios e dispare e-mails de teste para validar suas credenciais SMTP.
 
-5. **Consulta do sorteio**
-   - Em `/consultar`, busque pelo nome do participante sorteado ou cole o ID recebido no e-mail para visualizar a lista de presentes correspondente.
-   - O acesso é público e não revela quem tirou quem, apenas expõe as preferências do participante consultado.
-   - Os e-mails pós-sorteio agora incluem o ticket e o ID do amigo oculto para facilitar consultas futuras.
+5. **Pós-sorteio**
+   - Cada participante recebe um e-mail com o nome completo e o ID do amigo oculto que deverá presentear.
+   - O corpo da mensagem traz a lista de presentes cadastrada, eliminando a necessidade de portais públicos ou tickets extras.
+   - Guardar o ID enviado no e-mail é suficiente para futuras consultas com o organizador.
 
 ## Testes e lint
 
@@ -124,10 +116,10 @@ npm --prefix web run build
 ## Boas práticas implementadas
 
 - Validação de entrada com **Zod** em todas as camadas.
-- Separação em camadas (serviços, controladores, rotas) na API.
-- **React Query** e **React Hook Form** para experiência fluida na interface.
+- Separação clara de responsabilidades (serviços, controladores, repositórios e rotas) na API.
+- **React Query** e **React Hook Form** para uma experiência fluida na interface.
 - Armazenamento seguro das sessões administrativas e IDs de participantes no `localStorage` com feedback contextual.
-- Persistência apenas de inscrições com e-mail confirmado, mantendo as pendentes em coleção separada até a validação.
+- Persistência apenas de inscrições com e-mail confirmado, mantendo pendências separadas até a validação.
 
 ## Próximos passos sugeridos
 

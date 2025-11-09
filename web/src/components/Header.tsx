@@ -35,16 +35,6 @@ const Header: React.FC = () => {
             Lista de Presentes
           </NavLink>
           <NavLink
-            to="/consultar"
-            style={({ isActive }) => ({
-              color: isActive ? '#4338ca' : '#475569',
-              fontWeight: 600,
-              textDecoration: 'none'
-            })}
-          >
-            Consultar Sorteio
-          </NavLink>
-          <NavLink
             to="/confirmacao"
             style={({ isActive }) => ({
               color: isActive ? '#4338ca' : '#475569',

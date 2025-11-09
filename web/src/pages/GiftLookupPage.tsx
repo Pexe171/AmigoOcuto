@@ -81,7 +81,10 @@ const GiftLookupPage: React.FC = () => {
       const errorMessage = extractErrorMessage(error);
       // Melhorar mensagem quando o participante não for encontrado
       if (errorMessage.includes('não encontrado') || errorMessage.includes('not found')) {
-        show('error', 'Participante não encontrado. Verifique se o ID está correto e se a inscrição foi confirmada. Se você está usando MongoDB em memória, os dados são perdidos quando o servidor reinicia. Crie uma nova inscrição se necessário.');
+        show(
+          'error',
+          'Participante não encontrado. Verifique se o ID está correto, confirme se a inscrição foi validada e, se necessário, solicite o ID atualizado para a organização do evento.',
+        );
       } else {
         show('error', errorMessage);
       }
@@ -136,7 +139,7 @@ const GiftLookupPage: React.FC = () => {
             para abrir a lista de presentes.
           </p>
           <p className="text-sm text-white/70">
-            Usamos o mesmo ID enviado junto com o ticket. Guarde-o para consultas futuras.
+            Guarde o ID enviado no e-mail do sorteio para consultar a lista com a organização sempre que precisar.
           </p>
         </>
       }

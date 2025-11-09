@@ -6,6 +6,8 @@ export interface GiftItem {
   name: string;
   url?: string;
   notes?: string;
+  description?: string;
+  priority?: 'alta' | 'media' | 'baixa';
   purchased: boolean;
 }
 
