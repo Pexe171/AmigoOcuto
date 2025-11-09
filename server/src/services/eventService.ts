@@ -157,9 +157,7 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     throw new Error('São necessários pelo menos dois participantes verificados para o sorteio.');
   }
 
-  if (verifiedParticipants.length % 2 !== 0) {
-    throw new Error('O sorteio exige um número par de participantes verificados.');
-  }
+  // Allow odd number of participants for drawing
 
   const participantIds = verifiedParticipants.map((participant) => participant.id);
   const participantsWithoutLists = getParticipantsWithoutGiftItems(participantIds);
@@ -193,32 +191,37 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     const giftList = getGiftList(assigned.id);
     const gifts = giftList ? giftList.items : [];
 
-    await sendDrawEmail(
-      {
-        id: participant.id,
-        firstName: participant.firstName,
-        secondName: participant.secondName,
-        isChild: participant.isChild,
-        email: participant.email ?? null,
-        primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
-        guardianEmails: participant.guardianEmails ?? null,
-      },
-      {
-        id: assigned.id,
-        firstName: assigned.firstName,
-        secondName: assigned.secondName,
-        isChild: assigned.isChild,
-        email: assigned.email ?? null,
-        primaryGuardianEmail: assigned.primaryGuardianEmail ?? null,
-        guardianEmails: assigned.guardianEmails ?? null,
-      },
-      ticketCode,
-      gifts,
-      {
-        name: event.name,
-        location: event.location ?? null,
-      },
-    );
+    try {
+      await sendDrawEmail(
+        {
+          id: participant.id,
+          firstName: participant.firstName,
+          secondName: participant.secondName,
+          isChild: participant.isChild,
+          email: participant.email ?? null,
+          primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+          guardianEmails: participant.guardianEmails ?? null,
+        },
+        {
+          id: assigned.id,
+          firstName: assigned.firstName,
+          secondName: assigned.secondName,
+          isChild: assigned.isChild,
+          email: assigned.email ?? null,
+          primaryGuardianEmail: assigned.primaryGuardianEmail ?? null,
+          guardianEmails: assigned.guardianEmails ?? null,
+        },
+        ticketCode,
+        gifts,
+        {
+          name: event.name,
+          location: event.location ?? null,
+        },
+      );
+    } catch (emailError) {
+      console.error(`Failed to send draw email to participant ${participant.id}:`, emailError);
+      // Continue with the draw even if email fails
+    }
   }
 
   const updated = appendDrawHistoryEntry(event.id, { tickets: createdTicketIds, drawnAt: new Date() });
