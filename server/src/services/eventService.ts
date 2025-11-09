@@ -211,7 +211,6 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
           primaryGuardianEmail: assigned.primaryGuardianEmail ?? null,
           guardianEmails: assigned.guardianEmails ?? null,
         },
-        ticketCode,
         gifts,
         {
           name: event.name,

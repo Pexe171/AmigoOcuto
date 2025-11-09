@@ -9,12 +9,6 @@ const envSchema = z
   .object({
     NODE_ENV: z.string().default('development'),
     PORT: z.coerce.number().default(4000),
-    MONGO_URI: z.string().default('mongodb://127.0.0.1:27017'),
-    MONGO_DB_NAME: z.string().default('amigoocuto'),
-    MONGO_IN_MEMORY: z
-      .enum(['true', 'false'])
-      .default('false')
-      .transform((value) => value === 'true'),
     ADMIN_EMAIL: z.string().email().default('admin@amigoocuto.com'),
     ADMIN_PASSWORD: z
       .string()

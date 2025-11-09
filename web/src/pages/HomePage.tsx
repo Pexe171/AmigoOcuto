@@ -29,11 +29,11 @@ const HomePage: React.FC = () => {
         >
           Bem-vindo!
         </h2>
-        <p 
+        <p
           className="text-lg text-white/90 mb-8"
           style={{ fontFamily: "'Merriweather', serif" }}
         >
-          Participe do nosso amigo oculto de Natal. Inscreva-se ou consulte sua lista de presentes.
+          Participe do nosso amigo oculto de Natal. Inscreva-se e monte sua lista de presentes.
         </p>
         
         <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
@@ -54,13 +54,6 @@ const HomePage: React.FC = () => {
             Construir Lista
           </ButtonStyle>
           
-          {/* Botão de Destaque: Consultar Amigo Sorteado (Verde Natal) */}
-          <ButtonStyle
-            to="/consultar"
-            className="bg-emerald-600 text-white shadow-emerald-800/50 hover:bg-emerald-700 focus:ring-emerald-500"
-          >
-            Consultar Amigo Sorteado
-          </ButtonStyle>
         </div>
         
         {/* Link Admin */}

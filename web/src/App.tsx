@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-route
 import RegistrationPage from './pages/RegistrationPage';
 import VerificationPage from './pages/VerificationPage';
 import GiftListPage from './pages/GiftListPage';
-import GiftLookupPage from './pages/GiftLookupPage';
 import AdminPage from './pages/AdminPage';
 import ADMLoginPage from './pages/ADMLoginPage';
 import HomePage from './pages/HomePage';
@@ -98,7 +97,6 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } 
               />
-              <Route path="/consultar" element={<GiftLookupPage />} />
               <Route path="/adm" element={<ADMLoginPage />} />
               <Route path="/admin" element={<AdminPage />} />
               
