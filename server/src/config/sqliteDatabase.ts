@@ -55,15 +55,24 @@ function initializeDatabase() {
         CREATE TABLE IF NOT EXISTS events (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
-            description TEXT,
-            eventDate DATETIME NOT NULL,
-            location TEXT,
-            adminId TEXT NOT NULL, -- Assuming an admin creates events
+            status TEXT NOT NULL DEFAULT 'ativo',
+            participants TEXT NOT NULL DEFAULT '[]',
+            drawHistory TEXT NOT NULL DEFAULT '[]',
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            -- FOREIGN KEY (adminId) REFERENCES admins(id) -- If an admin table exists
         );
     `);
+
+    const eventColumns = db.prepare('PRAGMA table_info(events)').all() as { name: string }[];
+    if (!eventColumns.some((column) => column.name === 'status')) {
+        db.exec("ALTER TABLE events ADD COLUMN status TEXT NOT NULL DEFAULT 'ativo'");
+    }
+    if (!eventColumns.some((column) => column.name === 'participants')) {
+        db.exec("ALTER TABLE events ADD COLUMN participants TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!eventColumns.some((column) => column.name === 'drawHistory')) {
+        db.exec("ALTER TABLE events ADD COLUMN drawHistory TEXT NOT NULL DEFAULT '[]'");
+    }
 
     // Create PendingParticipants table
     db.exec(`
@@ -96,17 +105,16 @@ function initializeDatabase() {
 
     // Create Tickets table
     db.exec(`
-        CREATE TABLE IF NOT EXISTS tickets (
+        CREATE TABLE IF NOT EXISTS eventTickets (
             id TEXT PRIMARY KEY,
             eventId TEXT NOT NULL,
             participantId TEXT NOT NULL,
-            ticketType TEXT NOT NULL,
-            price REAL NOT NULL,
-            isPaid BOOLEAN DEFAULT FALSE,
+            assignedParticipantId TEXT NOT NULL,
+            ticketCode TEXT NOT NULL,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (eventId) REFERENCES events(id) ON DELETE CASCADE,
-            FOREIGN KEY (participantId) REFERENCES participants(id) ON DELETE CASCADE
+            FOREIGN KEY (participantId) REFERENCES participants(id) ON DELETE CASCADE,
+            FOREIGN KEY (assignedParticipantId) REFERENCES participants(id) ON DELETE CASCADE
         );
     `);
 

@@ -1,19 +1,28 @@
 import { z } from 'zod';
-import { EventModel, EventDocument } from '../models/Event';
-import { TicketModel, TicketDocument } from '../models/Ticket';
+import {
+  insertEvent,
+  listAllEvents,
+  findEventById,
+  updateEvent,
+  appendDrawHistoryEntry,
+  EventRecord,
+  addParticipantToEvent,
+} from '../database/eventRepository';
+import { createEventTicket } from '../database/eventTicketRepository';
 import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
 import { sendDrawEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService';
-const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/);
+
+export type EventDocument = EventRecord;
 
 const eventSchema = z.object({
   name: z.string().min(4, 'Informe um nome descritivo para o evento.'),
-  participantIds: z.array(z.string().uuid()).optional()
+  participantIds: z.array(z.string().uuid()).optional(),
 });
 
 const drawSchema = z.object({
-  eventId: objectIdSchema
+  eventId: z.string().uuid(),
 });
 
 const shuffle = <T>(input: T[]): T[] => {
@@ -46,7 +55,6 @@ const ensureNoSelfAssignment = <T extends { id: string }>(participants: T[]): T[
     }
   }
 
-  // fallback usando rotação
   return participants.map((_, index) => participants[(index + 1) % participants.length]!);
 };
 
@@ -60,18 +68,15 @@ export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<E
 
   const uniqueIds = Array.from(new Set(participantIds));
 
-  const event = new EventModel({
+  return insertEvent({
     name: data.name,
     participants: uniqueIds,
-    status: 'ativo'
+    status: 'ativo',
   });
-
-  await event.save();
-  return event;
 };
 
 export const listEvents = async (): Promise<EventDocument[]> => {
-  return EventModel.find().sort({ createdAt: -1 }).exec();
+  return listAllEvents();
 };
 
 export const listActiveEventsForRegistration = async (): Promise<Array<{
@@ -81,29 +86,34 @@ export const listActiveEventsForRegistration = async (): Promise<Array<{
   participantCount: number;
   createdAt: Date;
 }>> => {
-  const events = await EventModel.find({ status: 'ativo' }).sort({ createdAt: -1 }).lean();
+  const events = listAllEvents().filter((event) => event.status === 'ativo');
   return events.map((event) => ({
-    id: event._id.toString(),
+    id: event.id,
     name: event.name,
     status: event.status,
-    participantCount: Array.isArray(event.participants) ? event.participants.length : 0,
-    createdAt: event.createdAt ?? new Date(),
+    participantCount: event.participants.length,
+    createdAt: event.createdAt,
   }));
 };
 
 export const cancelEvent = async (eventId: string): Promise<EventDocument> => {
-  const event = await EventModel.findById(eventId);
+  const event = findEventById(eventId);
   if (!event) {
     throw new Error('Evento não encontrado.');
   }
-  event.status = 'cancelado';
-  await event.save();
-  return event;
+  if (event.status === 'cancelado') {
+    return event;
+  }
+  const updated = updateEvent(eventId, { status: 'cancelado' });
+  if (!updated) {
+    throw new Error('Não foi possível atualizar o evento.');
+  }
+  return updated;
 };
 
 export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ event: EventDocument; tickets: number }> => {
   const data = drawSchema.parse(input);
-  const event = await EventModel.findById(data.eventId);
+  const event = findEventById(data.eventId);
   if (!event) {
     throw new Error('Evento não encontrado.');
   }
@@ -144,25 +154,18 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
 
   const assignments = ensureNoSelfAssignment<Participant>(verifiedParticipants);
 
-  const tickets: TicketDocument[] = [];
+  const createdTicketIds: string[] = [];
 
   for (let i = 0; i < verifiedParticipants.length; i += 1) {
     const participant = verifiedParticipants[i]!;
     const assigned = assignments[i]!;
     const ticketCode = generateTicketCode();
 
-    const ticket = new TicketModel({
-      event: event.id,
-      participant: participant.id,
-      assignedParticipant: assigned.id,
-      ticketCode
-    });
-
-    await ticket.save();
-    tickets.push(ticket);
+    const ticket = createEventTicket(event.id, participant.id, assigned.id, ticketCode);
+    createdTicketIds.push(ticket.id);
 
     const giftList = getGiftList(assigned.id);
-    const gifts = giftList ? giftList.items : []; // Extract items from the gift list
+    const gifts = giftList ? giftList.items : [];
 
     await sendDrawEmail(
       {
@@ -188,15 +191,20 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     );
   }
 
-  event.status = 'sorteado';
-  event.drawHistory.push({ tickets: tickets.map((ticket) => ticket.id), drawnAt: new Date() });
-  await event.save();
+  const updated = appendDrawHistoryEntry(event.id, { tickets: createdTicketIds, drawnAt: new Date() });
+  if (!updated) {
+    throw new Error('Não foi possível atualizar o histórico do evento após o sorteio.');
+  }
 
-  return { event, tickets: tickets.length };
+  return { event: updated, tickets: createdTicketIds.length };
 };
 
-export const getEventHistory = async (eventId: string): Promise<{ name: string; status: string; sorteios: { drawnAt: Date; participantes: number }[] }> => {
-  const event = await EventModel.findById(eventId);
+export const getEventHistory = async (eventId: string): Promise<{
+  name: string;
+  status: string;
+  sorteios: { drawnAt: Date; participantes: number }[];
+}> => {
+  const event = findEventById(eventId);
   if (!event) {
     throw new Error('Evento não encontrado.');
   }
@@ -206,7 +214,14 @@ export const getEventHistory = async (eventId: string): Promise<{ name: string; 
     status: event.status,
     sorteios: event.drawHistory.map((entry) => ({
       drawnAt: entry.drawnAt,
-      participantes: entry.tickets.length
-    }))
+      participantes: entry.tickets.length,
+    })),
   };
+};
+
+export const includeParticipantInEvent = (eventId: string, participantId: string): void => {
+  const updated = addParticipantToEvent(eventId, participantId);
+  if (!updated) {
+    throw new Error('Evento não encontrado para associar participante.');
+  }
 };

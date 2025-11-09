@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sendVerificationEmail, ParticipantContact, buildGuardianList } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
 import { ensureNames } from '../utils/nameUtils';
-import { EventModel } from '../models/Event';
+import { findEventById as findEventRecordById, addParticipantToEvent } from '../database/eventRepository';
 import {
   findParticipantById,
   findParticipantByEmail,
@@ -138,14 +138,14 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
 
   let preferredEventId: string | undefined;
   if (data.eventId) {
-    const event = await EventModel.findById(data.eventId).lean();
+    const event = findEventRecordById(data.eventId);
     if (!event) {
       throw new Error('O evento selecionado não foi encontrado.');
     }
     if (event.status !== 'ativo') {
       throw new Error('O evento selecionado não está aceitando novas inscrições.');
     }
-    preferredEventId = event._id.toString();
+    preferredEventId = event.id;
   }
 
   if (data.isChild) {
@@ -380,10 +380,13 @@ export const verifyParticipant = async (
   deletePendingParticipant(pending.id);
 
   if (pending.preferredEventId) {
-    await EventModel.updateOne(
-      { _id: pending.preferredEventId, status: 'ativo' },
-      { $addToSet: { participants: participantToInsert.id ?? verifiedParticipant.id } }
+    const updatedEvent = addParticipantToEvent(
+      pending.preferredEventId,
+      participantToInsert.id ?? verifiedParticipant.id,
     );
+    if (!updatedEvent) {
+      throw new Error('Não foi possível associar o participante ao evento selecionado.');
+    }
   }
 
   return verifiedParticipant;
@@ -596,10 +599,13 @@ export const authenticateParticipantByEmailAndCode = async (
   deletePendingParticipant(pending.id);
 
   if (pending.preferredEventId) {
-    await EventModel.updateOne(
-      { _id: pending.preferredEventId, status: 'ativo' },
-      { $addToSet: { participants: participantToInsert.id ?? verifiedParticipant.id } }
+    const updatedEvent = addParticipantToEvent(
+      pending.preferredEventId,
+      participantToInsert.id ?? verifiedParticipant.id,
     );
+    if (!updatedEvent) {
+      throw new Error('Não foi possível associar o participante ao evento selecionado.');
+    }
   }
 
   return verifiedParticipant;

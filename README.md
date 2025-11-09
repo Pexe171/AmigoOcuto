@@ -1,6 +1,8 @@
 # Amigo Ocuto
 
-Plataforma profissional para organizar seu encontro de amigo oculto. O sistema é composto por uma API Node.js conectada ao MongoDB e uma interface web moderna construída com React e Vite.
+Plataforma profissional para organizar seu encontro de amigo oculto. O sistema é composto por uma API Node.js com persistência em SQLite (arquivo local, sem necessidade de serviços externos) e uma interface web moderna construída com React e Vite.
+
+> **Persistência garantida:** todos os cadastros — participantes, listas de presentes e eventos — são gravados em `server/data/database.db`. Reiniciar o servidor não apaga os dados.
 
 ## Visão geral
 
@@ -14,14 +16,15 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
 ```
 .
-├── server   # API em Node.js + Express + MongoDB
+├── server   # API em Node.js + Express + SQLite
 └── web      # Interface web em React + Vite
 ```
 
 ## Pré-requisitos
 
 - Node.js 18+
-- MongoDB em execução e acessível (local ou remoto)
+- SQLite (já embutido via `better-sqlite3`, sem configuração adicional)
+- (Opcional) MongoDB em execução e acessível, apenas se desejar utilizar a camada de compatibilidade mantida para futuras migrações
 
 ## Configuração da API (`server`)
 
