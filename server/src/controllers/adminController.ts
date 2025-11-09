@@ -117,7 +117,7 @@ export const deleteParticipant = (req: Request, res: Response): void => {
 export const createNewEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const event = await createEvent(req.body);
-    res.status(201).json({ id: event._id, name: event.name, status: event.status });
+    res.status(201).json({ id: event.id, name: event.name, status: event.status });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
@@ -127,7 +127,7 @@ export const listAllEvents = async (_req: Request, res: Response): Promise<void>
   const events = await listEvents();
   res.json(
     events.map((event) => ({
-      id: event._id,
+      id: event.id,
       name: event.name,
       status: event.status,
       participantes: event.participants.length,
@@ -145,7 +145,7 @@ export const cancelExistingEvent = async (req: Request, res: Response): Promise<
   }
   try {
     const event = await cancelEvent(eventId);
-    res.json({ id: event._id, name: event.name, status: event.status });
+    res.json({ id: event.id, name: event.name, status: event.status });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
@@ -161,7 +161,7 @@ export const runDraw = async (req: Request, res: Response): Promise<void> => {
     const result = await drawEvent({ eventId });
     res.json({
       message: 'Sorteio executado com sucesso. Os participantes receberam seus tickets por e-mail.',
-      event: { id: result.event._id, status: result.event.status },
+      event: { id: result.event.id, status: result.event.status },
       tickets: result.tickets
     });
   } catch (error) {
