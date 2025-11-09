@@ -94,6 +94,7 @@ npm --prefix web run build
 1. **Inscrição**
    - Acesse `/inscricao` e preencha o formulário. Adultos informam o próprio e-mail; crianças primeiro selecionam a opção "é criança" e registram os responsáveis.
    - Caso já exista pelo menos um evento ativo, a tela exibe um seletor opcional para você escolher em qual festa deseja participar.
+   - Cada opção mostra o número de participantes confirmados e, sempre que o organizador informar, o local da celebração.
    - Um código de verificação é enviado ao e-mail principal (do participante adulto ou do responsável).
 
 2. **Confirmação de e-mail**
@@ -110,6 +111,7 @@ npm --prefix web run build
   - Em `/admin`, autentique-se com o e-mail e a senha configurados nas variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
   - Consulte a lista completa de participantes confirmados, incluindo presença, responsáveis e itens cadastrados.
    - Acompanhe os eventos existentes e, quando todos os participantes estiverem verificados em número par, execute o sorteio com um único clique.
+   - Ao criar um novo evento, registre também o local da festa para que ele seja incluído automaticamente nos e-mails do sorteio.
    - Antes do sorteio, o sistema agora verifica automaticamente se todas as pessoas confirmadas no evento já cadastraram a lista de presentes.
    - Verifique o histórico de sorteios de cada evento. Todas as ações são de consulta, exceto o disparo do sorteio.
    - Dispare um e-mail de teste para todos os contatos confirmados antes do sorteio oficial e valide rapidamente as credenciais SMTP.

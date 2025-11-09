@@ -18,8 +18,30 @@ import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService'
 
 export type EventDocument = EventRecord;
 
+const normalizeSpaces = (value: string): string => value.replace(/\s+/g, ' ').trim();
+
 const eventSchema = z.object({
-  name: z.string().min(4, 'Informe um nome descritivo para o evento.'),
+  name: z
+    .string()
+    .trim()
+    .min(4, 'Informe um nome descritivo para o evento.')
+    .transform((value) => normalizeSpaces(value)),
+  location: z
+    .preprocess(
+      (value) => {
+        if (typeof value !== 'string') {
+          return null;
+        }
+        const normalized = normalizeSpaces(value);
+        return normalized.length === 0 ? null : normalized;
+      },
+      z
+        .string()
+        .min(4, 'Descreva a localização com pelo menos 4 caracteres.')
+        .max(140, 'Use no máximo 140 caracteres para a localização.')
+        .nullable(),
+    )
+    .transform((value) => value ?? null),
   participantIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -71,6 +93,7 @@ export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<E
 
   return insertEvent({
     name: data.name,
+    location: data.location,
     participants: uniqueIds,
     status: 'ativo',
   });
@@ -83,6 +106,7 @@ export const listEvents = async (): Promise<EventDocument[]> => {
 export const listActiveEventsForRegistration = async (): Promise<Array<{
   id: string;
   name: string;
+  location: string | null;
   status: EventDocument['status'];
   participantCount: number;
   createdAt: Date;
@@ -91,6 +115,7 @@ export const listActiveEventsForRegistration = async (): Promise<Array<{
   return events.map((event) => ({
     id: event.id,
     name: event.name,
+    location: event.location,
     status: event.status,
     participantCount: event.participants.length,
     createdAt: event.createdAt,
@@ -189,6 +214,10 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
       },
       ticketCode,
       gifts,
+      {
+        name: event.name,
+        location: event.location ?? null,
+      },
     );
   }
 

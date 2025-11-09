@@ -19,6 +19,7 @@ import {
 type EventSummary = {
   id: string;
   name: string;
+  location: string | null;
   status: string;
   participantes: number;
   sorteios: number;
@@ -249,7 +250,7 @@ const AdminPage: React.FC = () => {
     }
   });
 
-  const createEventMutation = useMutation<EventSummary, unknown, { name: string }>({
+  const createEventMutation = useMutation<EventSummary, unknown, { name: string; location?: string | null }>({
     mutationFn: async (newEvent) => {
       const response = await api.post('/admin/events', newEvent, axiosAuthConfig);
       return response.data as EventSummary;
@@ -600,9 +601,15 @@ const AdminPage: React.FC = () => {
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
-                const name = formData.get('eventName') as string;
-                if (name) {
-                  createEventMutation.mutate({ name });
+                const name = (formData.get('eventName') as string | null) ?? '';
+                const location = (formData.get('eventLocation') as string | null) ?? '';
+                const normalizedName = name.trim();
+                const normalizedLocation = location.trim();
+                if (normalizedName) {
+                  createEventMutation.mutate({
+                    name: normalizedName,
+                    location: normalizedLocation.length > 0 ? normalizedLocation : undefined,
+                  });
                   e.currentTarget.reset();
                 }
               }}
@@ -620,6 +627,22 @@ const AdminPage: React.FC = () => {
                   required
                   minLength={4}
                 />
+              </div>
+              <div className="flex-grow">
+                <label htmlFor="eventLocation" className={labelClass}>
+                  Local da festa (opcional)
+                </label>
+                <input
+                  type="text"
+                  id="eventLocation"
+                  name="eventLocation"
+                  className={inputClass}
+                  placeholder="Ex: Salão de festas da Av. Central, 250"
+                  minLength={4}
+                />
+                <p className="mt-1 text-xs text-white/60">
+                  Essa informação aparece automaticamente no e-mail enviado após o sorteio.
+                </p>
               </div>
               <button type="submit" className={primaryButtonClass} disabled={createEventMutation.isPending}>
                 {createEventMutation.isPending ? 'Criando...' : 'Criar evento'}
@@ -641,6 +664,7 @@ const AdminPage: React.FC = () => {
                   <thead className="uppercase text-xs tracking-[0.25em] text-white/60">
                     <tr>
                       <th className="px-4 py-3">Nome</th>
+                      <th className="px-4 py-3">Local</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Participantes</th>
                       <th className="px-4 py-3">Sorteios</th>
@@ -653,6 +677,7 @@ const AdminPage: React.FC = () => {
                       return (
                         <tr key={event.id}>
                           <td className="px-4 py-3">{event.name}</td>
+                          <td className="px-4 py-3">{event.location ? event.location : 'Local a definir'}</td>
                           <td className="px-4 py-3 capitalize">{event.status}</td>
                           <td className="px-4 py-3">{event.participantes}</td>
                           <td className="px-4 py-3">{event.sorteios}</td>

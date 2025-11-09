@@ -11,6 +11,7 @@ export interface DrawHistoryEntry {
 export interface EventRecord {
   id: string;
   name: string;
+  location: string | null;
   status: EventStatus;
   participants: string[];
   drawHistory: DrawHistoryEntry[];
@@ -73,6 +74,7 @@ const rowToEvent = (row: any): EventRecord | null => {
   return {
     id: row.id,
     name: row.name,
+    location: typeof row.location === 'string' && row.location.trim().length > 0 ? row.location : null,
     status: row.status as EventStatus,
     participants: parseParticipants(row.participants),
     drawHistory: parseDrawHistory(row.drawHistory),
@@ -84,6 +86,7 @@ const rowToEvent = (row: any): EventRecord | null => {
 export const insertEvent = (params: {
   id?: string;
   name: string;
+  location?: string | null;
   status?: EventStatus;
   participants?: string[];
   drawHistory?: DrawHistoryEntry[];
@@ -97,15 +100,17 @@ export const insertEvent = (params: {
     INSERT INTO events (
       id,
       name,
+      location,
       status,
       participants,
       drawHistory
-    ) VALUES (?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
     id,
     params.name,
+    params.location ?? null,
     status,
     serializeParticipants(participants),
     serializeDrawHistory(drawHistory)
@@ -129,7 +134,7 @@ export const listAllEvents = (): EventRecord[] => {
   return stmt
     .all()
     .map(rowToEvent)
-    .filter((event): event is EventRecord => event !== null);
+    .filter((event: EventRecord | null): event is EventRecord => event !== null);
 };
 
 export const updateEvent = (id: string, updates: Partial<Omit<EventRecord, 'id'>>): EventRecord | null => {
@@ -139,6 +144,11 @@ export const updateEvent = (id: string, updates: Partial<Omit<EventRecord, 'id'>
   if (updates.name !== undefined) {
     fields.push('name = ?');
     params.push(updates.name);
+  }
+
+  if (updates.location !== undefined) {
+    fields.push('location = ?');
+    params.push(updates.location ?? null);
   }
 
   if (updates.status !== undefined) {

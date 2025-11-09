@@ -8,6 +8,7 @@ export const listAvailableEvents = async (_req: Request, res: Response): Promise
       events.map((event) => ({
         id: event.id,
         name: event.name,
+        location: event.location,
         status: event.status,
         participantCount: event.participantCount,
         createdAt: event.createdAt instanceof Date ? event.createdAt.toISOString() : event.createdAt,
