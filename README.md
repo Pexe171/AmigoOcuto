@@ -24,7 +24,6 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
 - Node.js 18+
 - SQLite (já embutido via `better-sqlite3`, sem configuração adicional)
-- (Opcional) MongoDB em execução e acessível, apenas se desejar utilizar a camada de compatibilidade mantida para futuras migrações
 
 ## Configuração da API (`server`)
 
@@ -36,11 +35,6 @@ Plataforma profissional para organizar seu encontro de amigo oculto. O sistema �
 
 2. Ajuste as variáveis no `.env`:
 
-   - `MONGO_URI`: string de conexão com seu cluster MongoDB (pode ser sem o nome da base, ex.: `mongodb://127.0.0.1:27017`).
-   - `MONGO_DB_NAME`: nome da base de dados onde os dados serão armazenados (padrão: `amigoocuto`).
-   - `MONGO_IN_MEMORY`: defina como `true` para iniciar um MongoDB em memória (ótimo para quem não tem um servidor local).
-     > Garanta que o utilizador configurado no cluster possua a permissão **readWrite** (ou equivalente). Sem direito de `find`,
-     > a API entrará automaticamente em modo em memória em ambientes de desenvolvimento e interromperá a inicialização em produção.
    - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: credenciais utilizadas para acessar o painel administrativo.
    - `ADMIN_JWT_SECRET`: segredo utilizado para assinar os tokens de sessão do painel.
    - `ADMIN_SESSION_MINUTES`: duração (em minutos) das sessões administrativas.
@@ -127,7 +121,6 @@ npm --prefix web run build
 ## Boas práticas implementadas
 
 - Validação de entrada com **Zod** em todas as camadas.
-- **Mongoose** para modelagem robusta das coleções `Participants`, `GiftLists`, `Events` e `Tickets`.
 - Separação em camadas (serviços, controladores, rotas) na API.
 - **React Query** e **React Hook Form** para experiência fluida na interface.
 - Armazenamento seguro das sessões administrativas e IDs de participantes no `localStorage` com feedback contextual.

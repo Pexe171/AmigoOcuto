@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { createEvent, listEvents, cancelEvent, drawEvent, undoLastDraw, getEventHistory, includeParticipantInEvent, excludeParticipantFromEvent } from '../services/eventService';
+import { findEventById } from '../database/eventRepository';
 import { env } from '../config/environment';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
@@ -238,5 +239,22 @@ export const removeParticipantFromEvent = (req: Request, res: Response): void =>
     res.json({ message: 'Participante removido do evento com sucesso.' });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
+  }
+};
+
+export const getEventDetails = async (req: Request, res: Response): Promise<void> => {
+  const { eventId } = req.params;
+  if (!eventId) {
+    res.status(400).json({ message: 'Informe o identificador do evento.' });
+    return;
+  }
+  try {
+    const event = findEventById(eventId);
+    if (!event) {
+      throw new Error('Evento não encontrado.');
+    }
+    res.json(event);
+  } catch (error) {
+    res.status(404).json({ message: (error as Error).message });
   }
 };

@@ -5,7 +5,7 @@ import { useNotification } from '../hooks/useNotification';
 import Notification from '../components/Notification';
 import { inputClass, labelClass, primaryButtonClass, secondaryButtonClass, badgeClass } from '../styles/theme';
 
-const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+const objectIdRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 type ParticipantResult = {
   id: string;

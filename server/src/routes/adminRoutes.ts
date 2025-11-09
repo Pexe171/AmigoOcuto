@@ -12,7 +12,8 @@ import {
   deleteParticipant,
   triggerTestEmails,
   addParticipantToEvent,
-  removeParticipantFromEvent
+  removeParticipantFromEvent,
+  getEventDetails
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
@@ -30,6 +31,7 @@ router.post('/events/:eventId/cancel', cancelExistingEvent);
 router.post('/events/:eventId/draw', runDraw);
 router.post('/events/:eventId/undo-draw', undoDraw);
 router.get('/events/:eventId/history', getHistory);
+router.get('/events/:eventId', getEventDetails);
 router.post('/events/:eventId/participants/:participantId', addParticipantToEvent);
 router.delete('/events/:eventId/participants/:participantId', removeParticipantFromEvent);
 

@@ -92,6 +92,9 @@ const AdminPage: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [participantBeingDeleted, setParticipantBeingDeleted] = useState<string | null>(null);
+  const [showMembersModal, setShowMembersModal] = useState<boolean>(false);
+  const [selectedEventForMembers, setSelectedEventForMembers] = useState<string | null>(null);
+  const [selectedParticipantsToAdd, setSelectedParticipantsToAdd] = useState<string[]>([]);
 
   const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const axiosAuthConfig = useMemo(() => ({ headers: authHeaders }), [authHeaders]);
@@ -232,6 +235,22 @@ const AdminPage: React.FC = () => {
     }
   });
 
+  const addParticipantToEventMutation = useMutation<{ message: string }, unknown, { eventId: string; participantId: string }>({
+    mutationFn: async ({ eventId, participantId }) => {
+      const response = await api.post(`/admin/events/${eventId}/participants/${participantId}`, null, axiosAuthConfig);
+      return response.data as { message: string };
+    },
+    onSuccess: () => {
+      void eventsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
+  });
+
   const testEmailMutation = useMutation<TestEmailResult>({
     mutationFn: async () => {
       const response = await api.post('/admin/emails/test', null, axiosAuthConfig);
@@ -273,6 +292,16 @@ const AdminPage: React.FC = () => {
       return response.data as EventHistory;
     },
     enabled: isAuthenticated && Boolean(selectedEvent),
+    refetchOnWindowFocus: false
+  });
+
+  const eventDetailsQuery = useQuery({
+    queryKey: ['admin-event-details', selectedEventForMembers, token],
+    queryFn: async () => {
+      const response = await api.get(`/admin/events/${selectedEventForMembers}`, axiosAuthConfig);
+      return response.data;
+    },
+    enabled: isAuthenticated && Boolean(selectedEventForMembers),
     refetchOnWindowFocus: false
   });
 
@@ -679,6 +708,17 @@ const AdminPage: React.FC = () => {
                                 </button>
                                 <button
                                   type="button"
+                                  className={secondaryButtonClass}
+                                  onClick={() => {
+                                    setSelectedEventForMembers(event.id);
+                                    setSelectedParticipantsToAdd([]);
+                                    setShowMembersModal(true);
+                                  }}
+                                >
+                                  Trazer membros
+                                </button>
+                                <button
+                                  type="button"
                                   className={dangerButtonClass}
                                   onClick={() => {
                                     if (
@@ -718,6 +758,87 @@ const AdminPage: React.FC = () => {
                   </li>
                 ))}
               </ul>
+            </section>
+          )}
+
+          {showMembersModal && selectedEventForMembers && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white">Adicionar participantes ao evento</h3>
+                <button
+                  type="button"
+                  className={ghostButtonClass}
+                  onClick={() => {
+                    setShowMembersModal(false);
+                    setSelectedEventForMembers(null);
+                    setSelectedParticipantsToAdd([]);
+                  }}
+                >
+                  Fechar
+                </button>
+              </div>
+              <p className="text-white/80">
+                Evento: <strong>{events.find(e => e.id === selectedEventForMembers)?.name}</strong>
+              </p>
+              <p className="text-sm text-white/70">
+                Selecione os participantes para adicionar ao evento.
+              </p>
+              {participantsQuery.isLoading ? (
+                <p className="text-white/80">Carregando participantes...</p>
+              ) : participants.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto rounded-2xl border border-white/15 bg-black/20 p-4">
+                  {participants.map((participant) => (
+                    <div key={participant.id} className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`participant-${participant.id}`}
+                        checked={selectedParticipantsToAdd.includes(participant.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedParticipantsToAdd((prev) => [...prev, participant.id]);
+                          } else {
+                            setSelectedParticipantsToAdd((prev) => prev.filter((id) => id !== participant.id));
+                          }
+                        }}
+                        className="rounded border-white/20 bg-black/20 text-white focus:ring-white/50"
+                      />
+                      <label htmlFor={`participant-${participant.id}`} className="text-white/85 cursor-pointer">
+                        {participant.fullName} ({participant.isChild ? 'Criança' : 'Adulto'})
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-white/80">Nenhum participante disponível.</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  onClick={() => {
+                    setShowMembersModal(false);
+                    setSelectedEventForMembers(null);
+                    setSelectedParticipantsToAdd([]);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className={primaryButtonClass}
+                  onClick={() => {
+                    selectedParticipantsToAdd.forEach((participantId) => {
+                      addParticipantToEventMutation.mutate({ eventId: selectedEventForMembers, participantId });
+                    });
+                    setShowMembersModal(false);
+                    setSelectedEventForMembers(null);
+                    setSelectedParticipantsToAdd([]);
+                  }}
+                  disabled={selectedParticipantsToAdd.length === 0 || addParticipantToEventMutation.isPending}
+                >
+                  {addParticipantToEventMutation.isPending ? 'Adicionando...' : 'Adicionar selecionados'}
+                </button>
+              </div>
             </section>
           )}
         </>
