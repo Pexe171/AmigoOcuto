@@ -191,6 +191,12 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
 
   const assignments = ensureNoSelfAssignment<Participant>(verifiedParticipants);
 
+  const gifterByParticipantId = new Map<string, Participant>();
+  assignments.forEach((assigned, index) => {
+    const gifter = verifiedParticipants[index]!;
+    gifterByParticipantId.set(assigned.id, gifter);
+  });
+
   const createdTicketIds: string[] = [];
 
   for (let i = 0; i < verifiedParticipants.length; i += 1) {
@@ -206,6 +212,7 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
 
     try {
       if (participant.isChild) {
+        const gifterParticipant = gifterByParticipantId.get(participant.id);
         await sendDrawEmailToGuardian(
           {
             id: participant.id,
@@ -231,6 +238,17 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
             location: event.location ?? null,
             drawDateTime: event.drawDateTime ?? null,
           },
+          gifterParticipant
+            ? {
+                id: gifterParticipant.id,
+                firstName: gifterParticipant.firstName,
+                secondName: gifterParticipant.secondName,
+                isChild: gifterParticipant.isChild,
+                email: gifterParticipant.email ?? null,
+                primaryGuardianEmail: gifterParticipant.primaryGuardianEmail ?? null,
+                guardianEmails: gifterParticipant.guardianEmails ?? null,
+              }
+            : undefined,
         );
       } else {
         await sendDrawEmailToParticipant(
