@@ -347,23 +347,27 @@ export const sendVerificationEmail = async (
   });
 };
 
-// Função que envia o E-MAIL DO SORTEIO
-export const sendDrawEmail = async (
-  participant: ParticipantEmailData,
+// Função que envia o E-MAIL DO SORTEIO PARA CRIANÇAS (para os pais/responsáveis)
+export const sendDrawEmailToGuardian = async (
+  child: ParticipantEmailData,
   assigned: ParticipantEmailData,
   gifts: GiftItem[],
   eventInfo: { name: string; location: string | null; drawDateTime?: Date | null },
 ): Promise<void> => {
-  const recipientEmails = resolveRecipients(participant);
+  const recipientEmails = resolveRecipients(child);
   if (recipientEmails.length === 0) {
     return;
   }
 
   const assignedId = assigned.id;
-  const mainRecipient = resolveMainRecipient(participant, recipientEmails);
+  const mainRecipient = resolveMainRecipient(child, recipientEmails);
   const greeting = mainRecipient
-    ? `Estamos escrevendo para ${mainRecipient}.`
-    : 'Estamos escrevendo para os contactos cadastrados.';
+    ? `Olá responsável,`
+    : 'Olá responsáveis,';
+
+  const childFullName = [child.firstName, child.secondName]
+    .filter((value): value is string => Boolean(value && value.trim().length > 0))
+    .join(' ');
 
   const assignedFullName = [assigned.firstName, assigned.secondName]
     .filter((value): value is string => Boolean(value && value.trim().length > 0))
@@ -408,7 +412,126 @@ export const sendDrawEmail = async (
 
   const giftItemsHtml =
     gifts.length === 0
-      ? `<p style="${paragraphStyle}">O participante sorteado ainda não cadastrou preferências de presente.</p>`
+      ? `<p style="${paragraphStyle}">A criança sorteada ainda não cadastrou preferências de presente. Você pode ajudar ${assigned.firstName} a escolher algo especial!</p>`
+      : `
+        <p style="${paragraphStyle}">Estas são as sugestões que ${assigned.firstName} registou:</p>
+        <ul style="margin: 0 0 16px 20px; padding: 0; color: #1f2a1f;">
+          ${gifts
+            .map((gift) => {
+              const priority = gift.priority ? ` (prioridade ${gift.priority})` : '';
+              const notes = gift.description ?? gift.notes;
+              const description = notes ? ` – ${notes}` : '';
+              const link = gift.url
+                ? ` – <a href="${gift.url}" style="color: #4f46e5; text-decoration: underline;">${gift.url}</a>`
+                : '';
+              return `<li style="margin-bottom: 10px; font-size: 16px; line-height: 1.5;"><strong>${gift.name}</strong>${priority}${description}${link}</li>`;
+            })
+            .join('')}
+        </ul>
+      `;
+
+  const assignmentHighlightHtml = `
+    <div style="margin: 24px 0; padding: 24px; border: 1px solid rgba(185, 28, 28, 0.35); background: linear-gradient(160deg, rgba(254, 202, 202, 0.95), rgba(252, 165, 165, 0.9)); border-radius: 18px; box-shadow: 0 18px 40px rgba(153, 27, 27, 0.22);">
+      <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.08em;">
+        Amigo oculto da sua criança
+      </p>
+      <p style="${paragraphStyle} margin-bottom: 8px; color: #7f1d1d;">
+        ${childFullName} vai presentear <strong>${assignedFullName}</strong>.
+      </p>
+      <p style="${paragraphStyle} margin-bottom: 0; color: #7f1d1d;">
+        ID para guardar: <strong>${assignedId}</strong>
+      </p>
+    </div>
+  `;
+
+  const content = `
+    <p style="${paragraphStyle}">O sorteio do Amigo Oculto foi realizado com sucesso! Aqui estão os detalhes para ${childFullName}.</p>
+    ${eventDetailsHtml}
+    ${assignmentHighlightHtml}
+    ${giftItemsHtml}
+    <p style="${paragraphStyle}">Ajude sua criança a escolher um presente especial e guarde este e-mail para referência futura.</p>
+  `;
+
+  const preheaderLocation = eventInfo.location
+    ? ` Encontro em ${eventInfo.location}.`
+    : '';
+
+  const html = renderEmailTemplate({
+    title: 'Resultado do Sorteio - Amigo Oculto',
+    preheader: `O sorteio do evento ${eventInfo.name} foi realizado.${preheaderLocation} Veja quem ${child.firstName} vai presentear.`,
+    greeting,
+    content,
+  });
+
+  await mailer.sendMail({
+    to: recipientEmails,
+    subject: `Resultado do Sorteio - ${child.firstName} no Amigo Oculto`,
+    html,
+  });
+};
+
+// Função que envia o E-MAIL DO SORTEIO PARA ADULTOS (para o próprio participante)
+export const sendDrawEmailToParticipant = async (
+  participant: ParticipantEmailData,
+  assigned: ParticipantEmailData,
+  gifts: GiftItem[],
+  eventInfo: { name: string; location: string | null; drawDateTime?: Date | null },
+): Promise<void> => {
+  const recipientEmails = resolveRecipients(participant);
+  if (recipientEmails.length === 0) {
+    return;
+  }
+
+  const assignedId = assigned.id;
+  const mainRecipient = resolveMainRecipient(participant, recipientEmails);
+  const greeting = mainRecipient
+    ? `Olá ${participant.firstName},`
+    : 'Olá,';
+
+  const assignedFullName = [assigned.firstName, assigned.secondName]
+    .filter((value): value is string => Boolean(value && value.trim().length > 0))
+    .join(' ');
+
+  const locationMessage = eventInfo.location
+    ? `Local confirmado: <strong>${eventInfo.location}</strong>.`
+    : 'Assim que o local estiver definido, avisaremos todos os participantes.';
+
+  const scheduleHtml = eventInfo.drawDateTime
+    ? (() => {
+        const { fullDate, time } = formatDateTimeForEmail(eventInfo.drawDateTime);
+        const countdownText = describeTimeUntil(eventInfo.drawDateTime);
+        return `
+          <div style="margin: 18px 0 0;">
+            <div class="email-timer" role="group" aria-label="Data e hora do encontro">
+              <div class="email-timer-ring" aria-hidden="true">
+                <span class="email-timer-hand"></span>
+              </div>
+              <div class="email-timer-info">
+                <span class="email-timer-badge">Agenda do encontro</span>
+                <p>Data: <strong>${fullDate}</strong></p>
+                <p>Hora: <strong>${time}</strong></p>
+                <p class="email-timer-countdown">${countdownText}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      })()
+    : '';
+
+  const eventDetailsHtml = `
+    <div style="margin: 24px 0; padding: 24px; border: 1px solid rgba(22, 101, 52, 0.45); background: linear-gradient(160deg, rgba(220, 252, 231, 0.95), rgba(134, 239, 172, 0.88)); border-radius: 18px; box-shadow: 0 18px 36px rgba(20, 83, 45, 0.18);">
+      <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #166534; text-transform: uppercase; letter-spacing: 0.08em;">
+        Detalhes do encontro
+      </p>
+      <p style="${paragraphStyle} margin-bottom: 8px;">Evento: <strong>${eventInfo.name}</strong></p>
+      ${scheduleHtml}
+      <p style="${paragraphStyle} margin-bottom: 0;">${locationMessage}</p>
+    </div>
+  `;
+
+  const giftItemsHtml =
+    gifts.length === 0
+      ? `<p style="${paragraphStyle}">O participante sorteado ainda não cadastrou preferências de presente. Que tal surpreender com algo especial?</p>`
       : `
         <p style="${paragraphStyle}">Estas são as sugestões que ele ou ela registou:</p>
         <ul style="margin: 0 0 16px 20px; padding: 0; color: #1f2a1f;">
@@ -432,7 +555,7 @@ export const sendDrawEmail = async (
         Seu amigo oculto
       </p>
       <p style="${paragraphStyle} margin-bottom: 8px; color: #7f1d1d;">
-        Você presenteia <strong>${assignedFullName}</strong>.
+        Você vai presentear <strong>${assignedFullName}</strong>.
       </p>
       <p style="${paragraphStyle} margin-bottom: 0; color: #7f1d1d;">
         ID para guardar: <strong>${assignedId}</strong>
@@ -441,11 +564,11 @@ export const sendDrawEmail = async (
   `;
 
   const content = `
-    <p style="${paragraphStyle}">${greeting}</p>
+    <p style="${paragraphStyle}">O sorteio do Amigo Oculto foi realizado com sucesso! Aqui estão os detalhes do seu amigo oculto.</p>
     ${eventDetailsHtml}
     ${assignmentHighlightHtml}
     ${giftItemsHtml}
-    <p style="${paragraphStyle}">Guarde este e-mail. O ID do seu amigo oculto é suficiente para rever as informações sempre que precisar.</p>
+    <p style="${paragraphStyle}">Prepare um presente especial e guarde este e-mail para referência futura.</p>
   `;
 
   const preheaderLocation = eventInfo.location
@@ -453,15 +576,15 @@ export const sendDrawEmail = async (
     : '';
 
   const html = renderEmailTemplate({
-    title: 'Seu sorteio do Amigo Ocuto',
-    preheader: `O sorteio do evento ${eventInfo.name} foi realizado.${preheaderLocation} Descubra quem você presenteia.`,
-    greeting: `Olá ${participant.firstName},`,
+    title: 'Seu Sorteio do Amigo Oculto',
+    preheader: `O sorteio do evento ${eventInfo.name} foi realizado.${preheaderLocation} Descubra quem você vai presentear.`,
+    greeting,
     content,
   });
 
   await mailer.sendMail({
     to: recipientEmails,
-    subject: 'Seu sorteio do Amigo Ocuto',
+    subject: 'Seu Sorteio do Amigo Oculto',
     html,
   });
 };

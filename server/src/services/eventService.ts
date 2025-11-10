@@ -13,7 +13,7 @@ import {
 } from '../database/eventRepository';
 import { createEventTicket, deleteEventTickets } from '../database/eventTicketRepository';
 import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
-import { sendDrawEmail, sendDrawCancellationEmail } from './emailService';
+import { sendDrawEmailToGuardian, sendDrawEmailToParticipant, sendDrawCancellationEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService';
 
@@ -44,7 +44,7 @@ const eventSchema = z.object({
     )
     .transform((value) => value ?? null),
   participantIds: z.array(z.string().uuid()).optional(),
-  drawDateTime: z.string().datetime().optional(),
+  drawDateTime: z.string().optional(),
   moderatorEmail: z.string().email().optional(),
 }).refine((data) => {
   if (data.drawDateTime && !data.moderatorEmail) {
@@ -107,7 +107,7 @@ export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<E
     location: data.location,
     participants: uniqueIds,
     status: 'ativo',
-    drawDateTime: data.drawDateTime ? new Date(data.drawDateTime) : null,
+  drawDateTime: data.drawDateTime ? new Date(data.drawDateTime) : null,
     moderatorEmail: data.moderatorEmail || null,
   });
 };
@@ -205,32 +205,61 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
     const gifts = giftList ? giftList.items : [];
 
     try {
-      await sendDrawEmail(
-        {
-          id: participant.id,
-          firstName: participant.firstName,
-          secondName: participant.secondName,
-          isChild: participant.isChild,
-          email: participant.email ?? null,
-          primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
-          guardianEmails: participant.guardianEmails ?? null,
-        },
-        {
-          id: assigned.id,
-          firstName: assigned.firstName,
-          secondName: assigned.secondName,
-          isChild: assigned.isChild,
-          email: assigned.email ?? null,
-          primaryGuardianEmail: assigned.primaryGuardianEmail ?? null,
-          guardianEmails: assigned.guardianEmails ?? null,
-        },
-        gifts,
-        {
-          name: event.name,
-          location: event.location ?? null,
-          drawDateTime: event.drawDateTime ?? null,
-        },
-      );
+      if (participant.isChild) {
+        await sendDrawEmailToGuardian(
+          {
+            id: participant.id,
+            firstName: participant.firstName,
+            secondName: participant.secondName,
+            isChild: participant.isChild,
+            email: participant.email ?? null,
+            primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+            guardianEmails: participant.guardianEmails ?? null,
+          },
+          {
+            id: assigned.id,
+            firstName: assigned.firstName,
+            secondName: assigned.secondName,
+            isChild: assigned.isChild,
+            email: assigned.email ?? null,
+            primaryGuardianEmail: assigned.primaryGuardianEmail ?? null,
+            guardianEmails: assigned.guardianEmails ?? null,
+          },
+          gifts,
+          {
+            name: event.name,
+            location: event.location ?? null,
+            drawDateTime: event.drawDateTime ?? null,
+          },
+        );
+      } else {
+        await sendDrawEmailToParticipant(
+          {
+            id: participant.id,
+            firstName: participant.firstName,
+            secondName: participant.secondName,
+            isChild: participant.isChild,
+            email: participant.email ?? null,
+            primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+            guardianEmails: participant.guardianEmails ?? null,
+          },
+          {
+            id: assigned.id,
+            firstName: assigned.firstName,
+            secondName: assigned.secondName,
+            isChild: assigned.isChild,
+            email: assigned.email ?? null,
+            primaryGuardianEmail: assigned.primaryGuardianEmail ?? null,
+            guardianEmails: assigned.guardianEmails ?? null,
+          },
+          gifts,
+          {
+            name: event.name,
+            location: event.location ?? null,
+            drawDateTime: event.drawDateTime ?? null,
+          },
+        );
+      }
     } catch (emailError) {
       console.error(`Failed to send draw email to participant ${participant.id}:`, emailError);
       // Continue with the draw even if email fails
