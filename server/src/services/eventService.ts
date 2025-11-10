@@ -228,6 +228,7 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
         {
           name: event.name,
           location: event.location ?? null,
+          drawDateTime: event.drawDateTime ?? null,
         },
       );
     } catch (emailError) {

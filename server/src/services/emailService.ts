@@ -26,6 +26,75 @@ const renderSnowOverlay = (): string =>
       `<span class="email-snowflake" aria-hidden="true" style="left: ${flake.left}; animation-delay: ${flake.delay}; animation-duration: ${flake.duration}; font-size: ${flake.size}; opacity: ${flake.opacity};">❄</span>`,
   ).join('');
 
+const capitalise = (value: string): string => {
+  if (value.length === 0) {
+    return value;
+  }
+  return value[0]!.toUpperCase() + value.slice(1);
+};
+
+const formatDateTimeForEmail = (date: Date): { fullDate: string; time: string } => {
+  const fullDate = capitalise(
+    date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }),
+  );
+  const time = date.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return { fullDate, time };
+};
+
+const describeTimeUntil = (target: Date): string => {
+  const now = new Date();
+  const diffMs = target.getTime() - now.getTime();
+  if (diffMs <= 0) {
+    const diffPast = now.getTime() - target.getTime();
+    if (diffPast <= 60 * 60 * 1000) {
+      return 'O grande dia está a acontecer agora – aproveite cada momento!';
+    }
+    return 'O grande dia já aconteceu. Esperamos que tenha sido inesquecível!';
+  }
+
+  const totalMinutes = Math.round(diffMs / 60000);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+  if (days > 0) {
+    parts.push(`${days} ${days === 1 ? 'dia' : 'dias'}`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+  }
+  if (minutes > 0 && days === 0) {
+    parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+  }
+
+  if (parts.length === 0) {
+    return 'Menos de um minuto para o grande encontro!';
+  }
+
+  const formatted = parts.reduce((acc, part, index) => {
+    if (index === 0) {
+      return part;
+    }
+    if (index === parts.length - 1) {
+      return `${acc} e ${part}`;
+    }
+    return `${acc}, ${part}`;
+  }, '');
+
+  return `Faltam ${formatted} para o grande encontro.`;
+};
+
 type EmailTemplateOptions = {
   title: string;
   preheader?: string;
@@ -62,6 +131,14 @@ const renderEmailTemplate = ({
         20% { opacity: 1; }
         100% { transform: translate3d(20px, 110%, 0); opacity: 0; }
       }
+      @keyframes email-timer-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.25); transform: scale(1); }
+        50% { box-shadow: 0 0 28px 6px rgba(239, 68, 68, 0.22); transform: scale(1.04); }
+      }
+      @keyframes email-timer-hand {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
       .email-card { position: relative; border-radius: 28px; overflow: hidden; background: rgba(255, 255, 255, 0.94); box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25); }
       .email-snow-scene { position: relative; }
       .email-snow-scene::before { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(220, 38, 38, 0.92), rgba(22, 101, 52, 0.95)); }
@@ -74,8 +151,19 @@ const renderEmailTemplate = ({
       .email-card-header p { margin: 8px 0 0; font-size: 16px; opacity: 0.85; }
       .email-card-body { padding: 32px; background: rgba(255, 255, 255, 0.94); position: relative; z-index: 2; }
       .email-card-footer { padding: 0 32px 32px; background: rgba(255, 255, 255, 0.94); position: relative; z-index: 2; }
+      .email-timer { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+      .email-timer-ring { position: relative; width: 82px; height: 82px; border-radius: 50%; background: conic-gradient(from 180deg at 50% 50%, rgba(248, 113, 113, 0.9), rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.9), rgba(248, 113, 113, 0.9)); display: flex; align-items: center; justify-content: center; animation: email-timer-glow 8s ease-in-out infinite; }
+      .email-timer-ring::after { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: #fff; box-shadow: inset 0 8px 18px rgba(15, 23, 42, 0.12); }
+      .email-timer-hand { position: absolute; top: 14px; left: 50%; width: 3px; height: 28px; transform-origin: center 26px; background: linear-gradient(to bottom, #b91c1c, #ef4444); border-radius: 999px; animation: email-timer-hand 12s linear infinite; }
+      .email-timer-info { flex: 1 1 200px; }
+      .email-timer-info p { margin: 0 0 6px; font-size: 15px; line-height: 1.6; color: #1f2a1f; }
+      .email-timer-info strong { color: #b91c1c; }
+      .email-timer-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; padding: 6px 14px; background: rgba(248, 113, 113, 0.12); color: #991b1b; border-radius: 999px; margin-bottom: 10px; }
+      .email-timer-countdown { margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: #365949; }
       @media (prefers-reduced-motion: reduce) {
         .email-snowflake { display: none !important; }
+        .email-timer-ring { animation: none !important; }
+        .email-timer-hand { display: none !important; }
       }
     </style>
   </head>
@@ -264,7 +352,7 @@ export const sendDrawEmail = async (
   participant: ParticipantEmailData,
   assigned: ParticipantEmailData,
   gifts: GiftItem[],
-  eventInfo: { name: string; location: string | null },
+  eventInfo: { name: string; location: string | null; drawDateTime?: Date | null },
 ): Promise<void> => {
   const recipientEmails = resolveRecipients(participant);
   if (recipientEmails.length === 0) {
@@ -285,12 +373,35 @@ export const sendDrawEmail = async (
     ? `Local confirmado: <strong>${eventInfo.location}</strong>.`
     : 'Assim que o local estiver definido, avisaremos todos os participantes.';
 
+  const scheduleHtml = eventInfo.drawDateTime
+    ? (() => {
+        const { fullDate, time } = formatDateTimeForEmail(eventInfo.drawDateTime);
+        const countdownText = describeTimeUntil(eventInfo.drawDateTime);
+        return `
+          <div style="margin: 18px 0 0;">
+            <div class="email-timer" role="group" aria-label="Data e hora do encontro">
+              <div class="email-timer-ring" aria-hidden="true">
+                <span class="email-timer-hand"></span>
+              </div>
+              <div class="email-timer-info">
+                <span class="email-timer-badge">Agenda do encontro</span>
+                <p>Data: <strong>${fullDate}</strong></p>
+                <p>Hora: <strong>${time}</strong></p>
+                <p class="email-timer-countdown">${countdownText}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      })()
+    : '';
+
   const eventDetailsHtml = `
     <div style="margin: 24px 0; padding: 24px; border: 1px solid rgba(22, 101, 52, 0.45); background: linear-gradient(160deg, rgba(220, 252, 231, 0.95), rgba(134, 239, 172, 0.88)); border-radius: 18px; box-shadow: 0 18px 36px rgba(20, 83, 45, 0.18);">
       <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #166534; text-transform: uppercase; letter-spacing: 0.08em;">
         Detalhes do encontro
       </p>
       <p style="${paragraphStyle} margin-bottom: 8px;">Evento: <strong>${eventInfo.name}</strong></p>
+      ${scheduleHtml}
       <p style="${paragraphStyle} margin-bottom: 0;">${locationMessage}</p>
     </div>
   `;
