@@ -286,14 +286,18 @@ const AdminPage: React.FC = () => {
     }
   });
 
-  const createEventMutation = useMutation<EventSummary, unknown, { name: string; location?: string | null }>({
+  const createEventMutation = useMutation<EventSummary, unknown, { name: string; location?: string | null; drawDateTime?: string; moderatorEmail?: string; formElement?: HTMLFormElement }>({
     mutationFn: async (newEvent) => {
-      const response = await api.post('/admin/events', newEvent, axiosAuthConfig);
+      const { formElement, ...eventData } = newEvent;
+      const response = await api.post('/admin/events', eventData, axiosAuthConfig);
       return response.data as EventSummary;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       show('success', `Evento "${data.name}" criado com sucesso.`);
       void eventsQuery.refetch();
+      if (variables.formElement) {
+        variables.formElement.reset();
+      }
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -649,15 +653,20 @@ const AdminPage: React.FC = () => {
                 const formData = new FormData(e.currentTarget);
                 const name = (formData.get('eventName') as string | null) ?? '';
                 const location = (formData.get('eventLocation') as string | null) ?? '';
+                const drawDateTime = (formData.get('drawDateTime') as string | null) ?? '';
+                const moderatorEmail = (formData.get('moderatorEmail') as string | null) ?? '';
                 const normalizedName = name.trim();
                 const normalizedLocation = location.trim();
-                if (normalizedName) {
-                  createEventMutation.mutate({
-                    name: normalizedName,
-                    location: normalizedLocation.length > 0 ? normalizedLocation : undefined,
-                  });
-                  e.currentTarget.reset();
-                }
+                const normalizedDrawDateTime = drawDateTime.trim();
+                const normalizedModeratorEmail = moderatorEmail.trim();
+
+                createEventMutation.mutate({
+                  name: normalizedName,
+                  location: normalizedLocation.length > 0 ? normalizedLocation : undefined,
+                  drawDateTime: normalizedDrawDateTime.length > 0 ? new Date(normalizedDrawDateTime).toISOString() : undefined,
+                  moderatorEmail: normalizedModeratorEmail.length > 0 ? normalizedModeratorEmail : undefined,
+                  formElement: e.currentTarget,
+                });
               }}
             >
               <div className="flex-grow">
@@ -688,6 +697,36 @@ const AdminPage: React.FC = () => {
                 />
                 <p className="mt-1 text-xs text-white/60">
                   Essa informação aparece automaticamente no e-mail enviado após o sorteio.
+                </p>
+              </div>
+              <div className="flex-grow">
+                <label htmlFor="drawDateTime" className={labelClass}>
+                  Data e hora do sorteio (opcional)
+                </label>
+                <input
+                  type="datetime-local"
+                  id="drawDateTime"
+                  name="drawDateTime"
+                  className={inputClass}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+                <p className="mt-1 text-xs text-white/60">
+                  Quando definido, o moderador receberá um lembrete automático na data escolhida.
+                </p>
+              </div>
+              <div className="flex-grow">
+                <label htmlFor="moderatorEmail" className={labelClass}>
+                  E-mail do moderador (opcional)
+                </label>
+                <input
+                  type="email"
+                  id="moderatorEmail"
+                  name="moderatorEmail"
+                  className={inputClass}
+                  placeholder="moderador@exemplo.com"
+                />
+                <p className="mt-1 text-xs text-white/60">
+                  Necessário se uma data de sorteio for definida.
                 </p>
               </div>
               <button type="submit" className={primaryButtonClass} disabled={createEventMutation.isPending}>

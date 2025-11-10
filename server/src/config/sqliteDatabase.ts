@@ -59,6 +59,8 @@ function initializeDatabase() {
             status TEXT NOT NULL DEFAULT 'ativo',
             participants TEXT NOT NULL DEFAULT '[]',
             drawHistory TEXT NOT NULL DEFAULT '[]',
+            drawDateTime DATETIME,
+            moderatorEmail TEXT,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -76,6 +78,12 @@ function initializeDatabase() {
     }
     if (!eventColumns.some((column) => column.name === 'drawHistory')) {
         db.exec("ALTER TABLE events ADD COLUMN drawHistory TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!eventColumns.some((column) => column.name === 'drawDateTime')) {
+        db.exec('ALTER TABLE events ADD COLUMN drawDateTime DATETIME');
+    }
+    if (!eventColumns.some((column) => column.name === 'moderatorEmail')) {
+        db.exec('ALTER TABLE events ADD COLUMN moderatorEmail TEXT');
     }
 
     // Create PendingParticipants table

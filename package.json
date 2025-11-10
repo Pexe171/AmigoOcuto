@@ -15,6 +15,7 @@
     "lint": "npm --prefix server run lint && npm --prefix web run lint"
   },
   "devDependencies": {
+    "@types/node-cron": "^3.0.11",
     "npm-run-all": "^4.1.5"
   },
   "dependencies": {

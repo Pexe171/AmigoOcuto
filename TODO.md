@@ -1,19 +1,14 @@
-# TODO: Add Delete Button for Canceled Events
+# TODO: Add drawDateTime and moderatorEmail to events with scheduled email reminders
 
 ## Backend Changes
-- [x] Add `deleteEvent` function in `server/src/database/eventRepository.ts` to delete an event by ID using SQLite DELETE query.
-- [x] Add `deleteEvent` function in `server/src/services/eventService.ts` to validate event exists and status is 'cancelado', then call repository delete.
-- [x] Add `deleteExistingEvent` controller in `server/src/controllers/adminController.ts` to handle the request and call service.
-- [x] Add DELETE `/admin/events/:eventId` route in `server/src/routes/adminRoutes.ts`.
-
-## Frontend Changes
-- [x] Add `deleteEventMutation` using React Query in `web/src/pages/AdminPage.tsx`.
-- [x] Update the events table: For canceled events, show a delete button instead of the red message.
-- [x] Add confirmation dialog before deleting (using window.confirm).
-- [x] Handle success: refetch events and show success message.
-- [x] Handle errors appropriately (e.g., 401 for auth, other errors).
+- [ ] Update database schema: Add `drawDateTime` (DATETIME) and `moderatorEmail` (TEXT) columns to events table in `server/src/config/sqliteDatabase.ts`.
+- [ ] Update `EventRecord` interface in `server/src/database/eventRepository.ts` to include `drawDateTime` and `moderatorEmail`.
+- [ ] Update repository functions (`insertEvent`, `updateEvent`) in `server/src/database/eventRepository.ts` to handle new fields.
+- [ ] Modify `eventSchema` and `createEvent` in `server/src/services/eventService.ts` to accept and validate `drawDateTime` and `moderatorEmail`.
+- [ ] Add node-cron dependency to `server/package.json` and install it.
+- [ ] Create `sendDrawReminderEmail` function in `server/src/services/emailService.ts` for sending reminder emails to moderators.
+- [ ] Add function to get events needing reminders in `server/src/database/eventRepository.ts`.
+- [ ] Set up cron job in `server/src/server.ts` to check every minute and send reminders for events where drawDateTime has passed.
 
 ## Testing
-- [x] Test: Create a canceled event, delete it, verify removal from list.
-- [x] Ensure only canceled events show delete button.
-- [x] Verify error handling for non-canceled events or non-existent events.
+- [ ] Test: Create an event with drawDateTime and moderatorEmail, simulate time passing, verify reminder email is sent.

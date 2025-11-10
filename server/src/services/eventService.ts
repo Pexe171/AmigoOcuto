@@ -44,6 +44,16 @@ const eventSchema = z.object({
     )
     .transform((value) => value ?? null),
   participantIds: z.array(z.string().uuid()).optional(),
+  drawDateTime: z.string().datetime().optional(),
+  moderatorEmail: z.string().email().optional(),
+}).refine((data) => {
+  if (data.drawDateTime && !data.moderatorEmail) {
+    throw new Error('Quando uma data de sorteio é definida, o e-mail do moderador deve ser informado.');
+  }
+  if (data.moderatorEmail && !data.drawDateTime) {
+    throw new Error('Quando o e-mail do moderador é informado, a data de sorteio deve ser definida.');
+  }
+  return true;
 });
 
 const drawSchema = z.object({
@@ -97,6 +107,8 @@ export const createEvent = async (input: z.infer<typeof eventSchema>): Promise<E
     location: data.location,
     participants: uniqueIds,
     status: 'ativo',
+    drawDateTime: data.drawDateTime ? new Date(data.drawDateTime) : null,
+    moderatorEmail: data.moderatorEmail || null,
   });
 };
 
@@ -322,4 +334,9 @@ export const deleteEvent = async (eventId: string): Promise<void> => {
   if (!deleted) {
     throw new Error('Não foi possível deletar o evento.');
   }
+};
+
+export const getEventsNeedingReminder = async (): Promise<EventRecord[]> => {
+  const { findEventsNeedingReminder } = await import('../database/eventRepository');
+  return findEventsNeedingReminder();
 };

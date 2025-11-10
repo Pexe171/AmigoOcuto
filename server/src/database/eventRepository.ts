@@ -15,6 +15,8 @@ export interface EventRecord {
   status: EventStatus;
   participants: string[];
   drawHistory: DrawHistoryEntry[];
+  drawDateTime: Date | null;
+  moderatorEmail: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -78,6 +80,8 @@ const rowToEvent = (row: any): EventRecord | null => {
     status: row.status as EventStatus,
     participants: parseParticipants(row.participants),
     drawHistory: parseDrawHistory(row.drawHistory),
+    drawDateTime: row.drawDateTime ? parseDate(row.drawDateTime) : null,
+    moderatorEmail: row.moderatorEmail || null,
     createdAt: parseDate(row.createdAt),
     updatedAt: parseDate(row.updatedAt),
   };
@@ -90,6 +94,8 @@ export const insertEvent = (params: {
   status?: EventStatus;
   participants?: string[];
   drawHistory?: DrawHistoryEntry[];
+  drawDateTime?: Date | null;
+  moderatorEmail?: string | null;
 }): EventRecord => {
   const id = params.id ?? randomUUID();
   const status = params.status ?? 'ativo';
@@ -103,8 +109,10 @@ export const insertEvent = (params: {
       location,
       status,
       participants,
-      drawHistory
-    ) VALUES (?, ?, ?, ?, ?, ?)
+      drawHistory,
+      drawDateTime,
+      moderatorEmail
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -113,7 +121,9 @@ export const insertEvent = (params: {
     params.location ?? null,
     status,
     serializeParticipants(participants),
-    serializeDrawHistory(drawHistory)
+    serializeDrawHistory(drawHistory),
+    params.drawDateTime?.toISOString() ?? null,
+    params.moderatorEmail ?? null
   );
 
   const inserted = findEventById(id);
@@ -164,6 +174,16 @@ export const updateEvent = (id: string, updates: Partial<Omit<EventRecord, 'id'>
   if (updates.drawHistory !== undefined) {
     fields.push('drawHistory = ?');
     params.push(serializeDrawHistory(updates.drawHistory));
+  }
+
+  if (updates.drawDateTime !== undefined) {
+    fields.push('drawDateTime = ?');
+    params.push(updates.drawDateTime?.toISOString() ?? null);
+  }
+
+  if (updates.moderatorEmail !== undefined) {
+    fields.push('moderatorEmail = ?');
+    params.push(updates.moderatorEmail ?? null);
   }
 
   if (fields.length === 0) {
@@ -234,4 +254,13 @@ export const deleteEvent = (id: string): boolean => {
   const stmt = db.prepare('DELETE FROM events WHERE id = ?');
   const result = stmt.run(id);
   return result.changes > 0;
+};
+
+export const findEventsNeedingReminder = (): EventRecord[] => {
+  const now = new Date().toISOString();
+  const stmt = db.prepare('SELECT * FROM events WHERE drawDateTime IS NOT NULL AND drawDateTime <= ? AND status = ?');
+  return stmt
+    .all(now, 'ativo')
+    .map(rowToEvent)
+    .filter((event: EventRecord | null): event is EventRecord => event !== null && event.moderatorEmail !== null);
 };

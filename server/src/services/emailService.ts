@@ -426,3 +426,33 @@ export const sendTestEmailToParticipant = async (
     html,
   });
 };
+
+export const sendDrawReminderEmail = async (
+  moderatorEmail: string,
+  eventName: string,
+  eventId: string,
+  drawDateTime: Date,
+): Promise<void> => {
+  const content = `
+    <p style="${paragraphStyle}">Este é um lembrete automático para o sorteio do evento <strong>${eventName}</strong>.</p>
+    <div style="margin: 24px 0; padding: 24px; border-radius: 18px; background: linear-gradient(160deg, rgba(254, 249, 195, 0.95), rgba(254, 240, 138, 0.9)); border: 1px solid rgba(217, 119, 6, 0.3); box-shadow: 0 18px 36px rgba(146, 64, 14, 0.18);">
+      <p style="${paragraphStyle} margin-bottom: 12px;">O sorteio está agendado para: <strong>${drawDateTime.toLocaleString('pt-BR')}</strong></p>
+      <p style="${paragraphStyle} margin-bottom: 12px;">ID do evento: <strong>${eventId}</strong></p>
+      <p style="${paragraphStyle} margin-bottom: 0;">Por favor, acesse o painel administrativo para realizar o sorteio.</p>
+    </div>
+    <p style="${paragraphStyle}">Este lembrete é enviado automaticamente quando a data do sorteio se aproxima.</p>
+  `;
+
+  const html = renderEmailTemplate({
+    title: 'Lembrete de Sorteio - Amigo Ocuto',
+    preheader: `Lembrete: Sorteio do evento ${eventName} está próximo.`,
+    greeting: 'Olá Moderador,',
+    content,
+  });
+
+  await mailer.sendMail({
+    to: moderatorEmail,
+    subject: `Lembrete: Sorteio de ${eventName}`,
+    html,
+  });
+};
