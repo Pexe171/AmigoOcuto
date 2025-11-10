@@ -1,5 +1,6 @@
 import db from '../config/sqliteDatabase';
 import { randomUUID } from 'crypto';
+import { logger } from '../observability/logger';
 
 export interface GiftItem {
   id: string;
@@ -36,7 +37,7 @@ export const findGiftListByParticipantId = (participantId: string): GiftList | n
     const row = stmt.get(participantId);
     return rowToGiftList(row);
   } catch (error) {
-    console.error(`Error in findGiftListByParticipantId for participantId ${participantId}:`, error);
+    logger.error({ event: 'giftlist:find-by-participant-error', participantId, error }, 'Erro ao buscar lista de presentes por participante');
     throw error;
   }
 };
@@ -54,7 +55,7 @@ export const findGiftListsByParticipantIds = (participantIds: string[]): GiftLis
       .map(rowToGiftList)
       .filter((list: GiftList | null): list is GiftList => list !== null);
   } catch (error) {
-    console.error(`Error in findGiftListsByParticipantIds for participantIds ${participantIds.join(', ')}:`, error);
+    logger.error({ event: 'giftlist:find-many-error', participantIds, error }, 'Erro ao buscar listas de presentes por participantes');
     throw error;
   }
 };
@@ -74,7 +75,7 @@ export const createGiftList = (participantId: string): GiftList => {
     }
     return inserted;
   } catch (error) {
-    console.error(`Error in createGiftList for participantId ${participantId}:`, error);
+    logger.error({ event: 'giftlist:create-error', participantId, error }, 'Erro ao criar lista de presentes');
     throw error;
   }
 };
@@ -90,7 +91,7 @@ export const updateGiftList = (participantId: string, items: GiftItem[]): GiftLi
     stmt.run(JSON.stringify(items), now, participantId);
     return findGiftListByParticipantId(participantId);
   } catch (error) {
-    console.error(`Error in updateGiftList for participantId ${participantId}:`, error);
+    logger.error({ event: 'giftlist:update-error', participantId, error }, 'Erro ao atualizar lista de presentes');
     throw error;
   }
 };
@@ -100,7 +101,7 @@ export const deleteGiftListByParticipantId = (participantId: string): void => {
     const stmt = db.prepare('DELETE FROM giftLists WHERE participantId = ?');
     stmt.run(participantId);
   } catch (error) {
-    console.error(`Error in deleteGiftListByParticipantId for participantId ${participantId}:`, error);
+    logger.error({ event: 'giftlist:delete-error', participantId, error }, 'Erro ao eliminar lista de presentes');
     throw error;
   }
 };

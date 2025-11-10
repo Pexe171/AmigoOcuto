@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import db from '../config/sqliteDatabase';
+import { logger } from '../observability/logger';
 
 type EventStatus = 'rascunho' | 'ativo' | 'sorteado' | 'cancelado';
 
@@ -40,7 +41,7 @@ const parseDrawHistory = (raw: string | null | undefined): DrawHistoryEntry[] =>
       drawnAt: parseDate(entry.drawnAt ?? new Date().toISOString()),
     }));
   } catch (error) {
-    console.error('Erro ao analisar histórico de sorteios do evento:', error);
+    logger.error({ event: 'event-repo:parse-history-error', error }, 'Erro ao analisar histórico de sorteios do evento');
     return [];
   }
 };
@@ -63,7 +64,7 @@ const parseParticipants = (raw: string | null | undefined): string[] => {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
   } catch (error) {
-    console.error('Erro ao analisar participantes do evento:', error);
+    logger.error({ event: 'event-repo:parse-participants-error', error }, 'Erro ao analisar participantes do evento');
     return [];
   }
 };

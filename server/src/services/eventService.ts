@@ -12,10 +12,11 @@ import {
   deleteEvent as deleteEventFromRepo,
 } from '../database/eventRepository';
 import { createEventTicket, deleteEventTickets } from '../database/eventTicketRepository';
-import { listVerifiedParticipants, getParticipantOrFail, Participant } from './participantService';
+import { getParticipantOrFail, Participant } from './participantService';
 import { sendDrawEmailToGuardian, sendDrawEmailToParticipant, sendDrawCancellationEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService';
+import { logger } from '../observability/logger';
 
 export type EventDocument = EventRecord;
 
@@ -279,7 +280,10 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
         );
       }
     } catch (emailError) {
-      console.error(`Failed to send draw email to participant ${participant.id}:`, emailError);
+          logger.error(
+            { event: 'event:send-draw-email-failed', participantId: participant.id, error: emailError },
+            `Failed to send draw email to participant ${participant.id}: ${(emailError as Error).message}`,
+          );
       // Continue with the draw even if email fails
     }
   }

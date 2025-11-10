@@ -1,6 +1,7 @@
 import db from '../config/sqliteDatabase';
 import { Participant, PendingParticipant } from '../services/participantService'; // Assuming these interfaces are defined there
 import { randomUUID } from 'crypto';
+import { logger } from '../observability/logger';
 
 // Helper to convert SQLite row to Participant interface
 const rowToParticipant = (row: any): Participant | null => {
@@ -71,10 +72,10 @@ export const findParticipantByEmail = (email: string): Participant | null => {
   try {
     const stmt = db.prepare('SELECT * FROM participants WHERE email = ? OR primaryGuardianEmail = ?');
     const row = stmt.get(email, email);
-    console.log(`[DEBUG] findParticipantByEmail for email ${email}:`, row); // Added debug log
+    logger.debug({ event: 'participant-repo:find-by-email', email, row }, 'Consulta de participante por e-mail executada');
     return rowToParticipant(row);
   } catch (error) {
-    console.error(`Error in findParticipantByEmail for email ${email}:`, error);
+    logger.error({ event: 'participant-repo:find-by-email-error', email, error }, 'Erro ao consultar participante por e-mail');
     throw error;
   }
 };
@@ -288,7 +289,7 @@ export const findPendingParticipantByEmailOrGuardianEmail = (email: string): Pen
     const row = stmt.get(email, email);
     return rowToPendingParticipant(row);
   } catch (error) {
-    console.error(`Error in findPendingParticipantByEmailOrGuardianEmail for email ${email}:`, error);
+    logger.error({ event: 'participant-repo:find-pending-error', email, error }, 'Erro ao consultar participante pendente por e-mail');
     throw error;
   }
 };

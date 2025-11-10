@@ -7,7 +7,9 @@
     "dev": "vite --force",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings=0 && tsc --noEmit",
+    "test": "node --test --import ts-node/register tests",
+    "format": "eslint --fix 'src/**/*.{ts,tsx}'"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

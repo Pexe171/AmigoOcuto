@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { env } from '../config/environment';
 import jwt from 'jsonwebtoken';
 import { findParticipantById } from '../database/participantRepository';
+import { secretManager } from '../security/secretManager';
 
 // Extend the Request type to include participantId
 declare global {
@@ -26,7 +26,7 @@ export const requireParticipantAuth = async (req: Request, res: Response, next: 
 
   const token = authorization.slice('Bearer '.length).trim();
   try {
-    const decoded = jwt.verify(token, env.ADMIN_JWT_SECRET) as ParticipantTokenPayload; // Reusing ADMIN_JWT_SECRET
+    const decoded = jwt.verify(token, secretManager.getSecret('ADMIN_JWT_SECRET')) as ParticipantTokenPayload;
     if (!decoded.participantId || typeof decoded.participantId !== 'string') {
       res.status(401).json({ message: 'Sessão inválida ou expirada. Faça login novamente.' });
       return;
@@ -53,7 +53,7 @@ export const requireParticipantAuth = async (req: Request, res: Response, next: 
     }
 
     next();
-  } catch (error) {
+  } catch {
     res.status(401).json({ message: 'Sessão inválida ou expirada. Faça login novamente.' });
   }
 };

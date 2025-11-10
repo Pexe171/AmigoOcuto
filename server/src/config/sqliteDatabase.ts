@@ -2,21 +2,31 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { env } from './environment';
+import { logger } from '../observability/logger';
 
-// Define the path for the SQLite database file
 const dataDir = path.resolve(__dirname, '../../data');
-const dbPath = path.join(dataDir, 'database.db');
+const dbPath = env.SQLITE_IN_MEMORY ? ':memory:' : path.join(dataDir, 'database.db');
 
-// Ensure the data directory exists
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+if (!env.SQLITE_IN_MEMORY && !fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
 }
 
-// Initialize the database connection
-const db: InstanceType<typeof Database> = new Database(dbPath, { verbose: console.log }); // verbose para registrar queries
+const verbose =
+  env.LOG_LEVEL === 'debug'
+    ? (message?: unknown, ...params: unknown[]) => {
+        if (typeof message === 'string') {
+          logger.debug({ sql: message, params }, 'SQLite verbose output');
+        } else if (message !== undefined) {
+          logger.debug({ message, params }, 'SQLite verbose output');
+        }
+      }
+    : undefined;
+
+const db: InstanceType<typeof Database> = new Database(dbPath, { verbose });
 
 function initializeDatabase() {
-    console.log('Initializing SQLite database...');
+  logger.info({ event: 'sqlite:init', dbPath }, 'Inicializando a base SQLite');
 
     // Create Participants table
     db.exec(`
@@ -130,11 +140,40 @@ function initializeDatabase() {
         );
     `);
 
-    console.log('SQLite database initialized successfully.');
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS jobExecutions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            jobName TEXT NOT NULL,
+            startedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            finishedAt DATETIME,
+            status TEXT NOT NULL,
+            message TEXT
+        );
+    `);
+
+  logger.info({ event: 'sqlite:init-success' }, 'SQLite inicializado com sucesso');
 }
 
 // Run initialization and set PRAGMA for performance
 initializeDatabase();
 db.pragma('journal_mode = WAL'); // Recommended for better performance and concurrency
+
+export const resetDatabase = (): void => {
+  const tables = [
+    'eventTickets',
+    'events',
+    'giftLists',
+    'participants',
+    'pendingParticipants',
+    'jobExecutions',
+  ];
+  for (const table of tables) {
+    try {
+      db.exec(`DELETE FROM ${table};`);
+    } catch (error) {
+      logger.warn({ event: 'sqlite:reset-failed', table, error }, 'Falha ao limpar tabela');
+    }
+  }
+};
 
 export default db;
