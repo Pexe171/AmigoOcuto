@@ -10,6 +10,7 @@ Plataforma profissional para organizar o seu encontro de amigo oculto. O projeto
 - **Listas de presentes completas** por participante, com prioridades, descrições e links para compras online.
 - **Painel administrativo centralizado** para criar eventos, acompanhar confirmações, validar listas e disparar o sorteio.
 - **E-mails temáticos de Natal** que comunicam códigos de verificação, acessos e o resultado do sorteio com clareza.
+- **Temporizador animado nos e-mails** para destacar data e hora do encontro, com contagem regressiva automática em português.
 - **Infra simples de operar** graças ao SQLite local: nenhum servidor de banco de dados precisa ser instalado.
 
 ## Estrutura do projeto
