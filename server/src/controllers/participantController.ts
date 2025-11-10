@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { registerParticipant, verifyParticipant, resendVerificationCode, getParticipantOrFail, searchParticipants, getParticipantByEmailOrFail, updateParticipantEmail, requestVerificationCodeByEmail } from '../services/participantService';
 import { ensureNames } from '../utils/nameUtils';
+import { logger } from '../observability/logger';
 
 const resolveParticipantId = (participant: { id?: string; _id?: unknown }): string => {
   if (participant.id) {
@@ -33,7 +34,7 @@ const extractGuardianEmails = (participant: { guardianEmails?: unknown }): strin
         return parsed.filter((email): email is string => typeof email === 'string');
       }
     } catch (error) {
-      console.warn('NÃ£o foi possÃ­vel converter guardianEmails armazenados como string JSON.', error);
+      logger.warn({ event: 'participant:guardianEmails-parse-error', error }, 'Não foi possível converter guardianEmails armazenados como string JSON.');
       return [guardianEmails];
     }
     return [guardianEmails];
@@ -101,7 +102,7 @@ export const createParticipant = async (
       return;
     }
 
-    console.error('Erro ao criar participante:', error);
+    logger.error({ event: 'participant:create-error', error }, 'Erro ao criar participante');
     res.status(500).json({ message: 'Ocorreu um erro interno no servidor.' });
   }
 };
@@ -119,6 +120,12 @@ export const confirmParticipant = async (
       message: 'E-mail confirmado com sucesso. Prepare a sua lista de presentes!',
     });
   } catch (error) {
+    recordAuthEvent({
+      subject: 'participant',
+      outcome: 'failure',
+      email: req.body?.email,
+      reason: error instanceof Error ? error.message : 'unknown_error',
+    });
     res.status(400).json({ message: (error as Error).message });
   }
 };
@@ -284,8 +291,9 @@ export const updateEmail = async (
 };
 
 import jwt from 'jsonwebtoken';
-import { env } from '../config/environment';
 import { authenticateParticipantByEmailAndCode } from '../services/participantService';
+import { secretManager } from '../security/secretManager';
+import { recordAuthEvent } from '../security/auditService';
 
 
 type ParticipantTokenPayload = {
@@ -297,6 +305,7 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
   try {
     const { email, code } = req.body;
     if (!email || !code) {
+      recordAuthEvent({ subject: 'participant', outcome: 'failure', email, reason: 'missing_credentials' });
       res.status(400).json({ message: 'Informe o e-mail e o cÃ³digo de verificaÃ§Ã£o.' });
       return;
     }
@@ -308,9 +317,11 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
 
     const token = jwt.sign(
       { participantId, email: participant.email || participant.primaryGuardianEmail } as ParticipantTokenPayload,
-      env.ADMIN_JWT_SECRET, // Reusing ADMIN_JWT_SECRET for now, should be a separate secret
-      { expiresIn: '1h' } // Token expires in 1 hour
+      secretManager.getSecret('ADMIN_JWT_SECRET'),
+      { expiresIn: '1h' },
     );
+
+    recordAuthEvent({ subject: 'participant', outcome: 'success', email });
 
     res.json({
       message: 'Login de participante bem-sucedido.',

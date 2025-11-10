@@ -23,6 +23,28 @@ const envSchema = z
       .min(5, 'ADMIN_SESSION_MINUTES deve ser no mínimo 5 minutos.')
       .max(24 * 60, 'ADMIN_SESSION_MINUTES pode ter até 24 horas.')
       .default(120),
+    SECRET_ROTATION_INTERVAL_MS: z.coerce
+      .number()
+      .min(0)
+      .default(1000 * 60 * 60),
+    RATE_LIMIT_WINDOW_MINUTES: z.coerce
+      .number()
+      .min(1)
+      .default(15),
+    RATE_LIMIT_MAX_REQUESTS: z.coerce
+      .number()
+      .min(1)
+      .default(100),
+    AUDIT_LOG_PATH: z.string().default(path.resolve(__dirname, '../../data/auth-audit.log')),
+    ENABLE_HTTP_METRICS: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+    SQLITE_IN_MEMORY: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     MAILER_MODE: z.enum(['smtp', 'console']).default('console'),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().optional(),

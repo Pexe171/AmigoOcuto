@@ -4,6 +4,7 @@ import { sendVerificationEmail, ParticipantContact, buildGuardianList } from './
 import { generateVerificationCode } from '../utils/codeGenerator';
 import { ensureNames } from '../utils/nameUtils';
 import { findEventById as findEventRecordById, addParticipantToEvent } from '../database/eventRepository';
+import { logger } from '../observability/logger';
 import {
   findParticipantById,
   findParticipantByEmail,
@@ -309,8 +310,8 @@ export const verifyParticipant = async (
   }
 
   const pending: PendingParticipant = pendingResult; // Explicitly assert type here
-  console.log(`[DEBUG] verifyParticipant - pending object:`, pending);
-  console.log(`[DEBUG] verifyParticipant - pending.id:`, pending.id);
+  logger.debug({ event: 'participant:verify-pending', pending }, 'Verificando participante pendente');
+  logger.debug({ event: 'participant:verify-pending-id', id: pending.id }, 'Identificador pendente processado');
 
   if (new Date(pending.expiresAt).getTime() < Date.now()) {
     throw new Error('O cÃ³digo de verificaÃ§Ã£o expirou. Solicite um novo.');
@@ -434,7 +435,7 @@ export const resendVerificationCode = async (participantId: string): Promise<voi
 };
 
 const updateEmailSchema = z.object({
-  participantId: z.string().regex(/^[0-9a-fA-F\-]{36}$/),
+  participantId: z.string().regex(/^[0-9a-fA-F-]{36}$/),
   newEmail: z.string().email('Informe um e-mail vÃ¡lido.'),
 });
 
@@ -624,8 +625,14 @@ export const getParticipantOrFail = async (participantId: string): Promise<Parti
 
   const totalParticipants = countParticipants();
   const totalPending = countPendingParticipants();
-  console.log(
-    `[DEBUG] Participante ${participantId} nÃ£o encontrado. Total de participantes verificados: ${totalParticipants}, Total pendentes: ${totalPending}`,
+  logger.warn(
+    {
+      event: 'participant:not-found',
+      participantId,
+      totalParticipants,
+      totalPending,
+    },
+    `Participante ${participantId} não encontrado após verificação de estado`,
   );
   throw new Error('Participante nÃ£o encontrado. Verifique se o ID estÃ¡ correto e se a inscriÃ§Ã£o foi confirmada.');
 };

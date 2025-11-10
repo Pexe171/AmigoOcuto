@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { listActiveEventsForRegistration } from '../services/eventService';
+import { logger } from '../observability/logger';
 
 export const listAvailableEvents = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -15,7 +16,7 @@ export const listAvailableEvents = async (_req: Request, res: Response): Promise
       })),
     );
   } catch (error) {
-    console.error('Erro ao listar eventos disponíveis:', error);
+    logger.error({ event: 'events:list-available-error', error }, 'Erro ao listar eventos disponíveis');
     res.status(500).json({ message: 'Não foi possível carregar os eventos disponíveis. Tente novamente em instantes.' });
   }
 };

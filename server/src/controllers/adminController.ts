@@ -4,6 +4,9 @@ import { findEventById } from '../database/eventRepository';
 import { env } from '../config/environment';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
+import { secretManager } from '../security/secretManager';
+import { recordAuthEvent } from '../security/auditService';
+import { logger, logStructuredError } from '../observability/logger';
 import {
   deleteParticipantForAdmin,
   getParticipantDetailsForAdmin,
@@ -34,10 +37,13 @@ const loginSchema = z
 export const authenticateAdmin = (req: Request, res: Response): void => {
   try {
     const credentials = loginSchema.parse(req.body ?? {});
+    const adminSecret = secretManager.getSecret('ADMIN_JWT_SECRET');
+    const adminPassword = secretManager.getSecret('ADMIN_PASSWORD');
 
     if (credentials.token) {
       try {
-        const payload = jwt.verify(credentials.token, env.ADMIN_JWT_SECRET) as AdminTokenPayload & JwtPayload;
+        const payload = jwt.verify(credentials.token, adminSecret) as AdminTokenPayload & JwtPayload;
+        recordAuthEvent({ subject: 'admin', outcome: 'success', email: payload.email });
         res.json({
           message: 'Sessão restaurada com sucesso.',
           token: credentials.token,
@@ -45,25 +51,31 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
         });
         return;
       } catch (error) {
+        recordAuthEvent({ subject: 'admin', outcome: 'failure', reason: 'token_expired' });
         res.status(401).json({ message: 'Sessão administrativa expirada. Faça login novamente.' });
         return;
       }
     }
 
     const normalizedEmail = credentials.email!.toLowerCase();
-    if (
-      normalizedEmail !== env.ADMIN_EMAIL.toLowerCase() ||
-      credentials.password !== env.ADMIN_PASSWORD
-    ) {
+    if (normalizedEmail !== env.ADMIN_EMAIL.toLowerCase() || credentials.password !== adminPassword) {
+      recordAuthEvent({
+        subject: 'admin',
+        outcome: 'failure',
+        email: normalizedEmail,
+        reason: 'invalid_credentials',
+      });
       res.status(401).json({ message: 'Credenciais administrativas inválidas.' });
       return;
     }
 
     const token = jwt.sign(
       { email: env.ADMIN_EMAIL } satisfies AdminTokenPayload,
-      env.ADMIN_JWT_SECRET,
+      adminSecret,
       { expiresIn: `${env.ADMIN_SESSION_MINUTES}m` }
     );
+
+    recordAuthEvent({ subject: 'admin', outcome: 'success', email: normalizedEmail });
 
     res.json({ message: 'Acesso autorizado.', token, email: env.ADMIN_EMAIL });
   } catch (error) {
@@ -71,6 +83,7 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
       res.status(400).json({ message: 'Informe o e-mail e a senha administrativos.' });
       return;
     }
+    logger.error({ event: 'admin:login-error', error: logStructuredError(error) }, 'Falha ao autenticar administrador');
     res.status(400).json({ message: (error as Error).message });
   }
 };
