@@ -13,6 +13,7 @@ import {
   listParticipantsWithGiftSummary,
   sendTestEmailsToAllParticipants
 } from '../services/adminService';
+import { resetDatabase } from '../config/sqliteDatabase';
 
 type AdminTokenPayload = { email: string };
 
@@ -284,5 +285,16 @@ export const deleteExistingEvent = async (req: Request, res: Response): Promise<
     res.json({ message: 'Evento deletado com sucesso.' });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
+  }
+};
+
+export const resetDatabaseData = (req: Request, res: Response): void => {
+  try {
+    resetDatabase();
+    logger.info({ event: 'admin:database-reset' }, 'Banco de dados resetado pelo administrador');
+    res.json({ message: 'Banco de dados resetado com sucesso. Todos os dados foram removidos.' });
+  } catch (error) {
+    logger.error({ event: 'admin:database-reset-error', error: logStructuredError(error) }, 'Falha ao resetar banco de dados');
+    res.status(500).json({ message: 'Falha ao resetar banco de dados.' });
   }
 };

@@ -12,13 +12,13 @@ type Snowflake = {
 export const Snowfall = (): JSX.Element => {
   const flakes = useMemo<Snowflake[]>(
     () =>
-      Array.from({ length: 120 }, (_, index) => ({
+      Array.from({ length: 300 }, (_, index) => ({
         id: index,
-        size: `${(index % 6) + 3}px`,
-        left: `${(index * 13) % 100}%`,
-        delay: `${(index % 12) * 0.6}s`,
-        duration: `${8 + (index % 10)}s`,
-        opacity: 0.35 + (index % 5) * 0.1,
+        size: `${(index % 9) + 6}px`,
+        left: `${(index * 5) % 100}%`,
+        delay: `${(index % 20) * 0.4}s`,
+        duration: `${12 + (index % 18)}s`,
+        opacity: 0.6 + (index % 4) * 0.1,
       })),
     [],
   );

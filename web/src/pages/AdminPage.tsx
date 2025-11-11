@@ -286,6 +286,24 @@ const AdminPage: React.FC = () => {
     }
   });
 
+  const resetDatabaseMutation = useMutation<{ message: string }>({
+    mutationFn: async () => {
+      const response = await api.delete('/admin/database', axiosAuthConfig);
+      return response.data as { message: string };
+    },
+    onSuccess: (data) => {
+      show('success', data.message);
+      void participantsQuery.refetch();
+      void eventsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
+  });
+
   const createEventMutation = useMutation<EventSummary, unknown, { name: string; location?: string | null; drawDateTime?: string; moderatorEmail?: string; formElement?: HTMLFormElement }>({
     mutationFn: async (newEvent) => {
       const { formElement, ...eventData } = newEvent;
@@ -448,14 +466,36 @@ const AdminPage: React.FC = () => {
                   Envie um e-mail de teste para todos os participantes confirmados e responsáveis cadastrados.
                 </p>
               </div>
-              <button
-                type="button"
-                className={secondaryButtonClass}
-                onClick={() => testEmailMutation.mutate()}
-                disabled={testEmailMutation.isPending}
-              >
-                {testEmailMutation.isPending ? 'Enviando teste...' : 'Disparar e-mail de teste'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  onClick={() => testEmailMutation.mutate()}
+                  disabled={testEmailMutation.isPending}
+                >
+                  {testEmailMutation.isPending ? 'Enviando teste...' : 'Disparar e-mail de teste'}
+                </button>
+                <button
+                  type="button"
+                  className={dangerButtonClass}
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      'ATENÇÃO: Esta ação irá deletar TODOS os dados do banco de dados (participantes, eventos, listas de presentes, etc.). Esta ação é irreversível. Tem certeza que deseja continuar?'
+                    );
+                    if (confirmed) {
+                      const secondConfirm = window.confirm(
+                        'Confirmação final: Todos os dados serão perdidos permanentemente. Clique em "OK" para prosseguir.'
+                      );
+                      if (secondConfirm) {
+                        resetDatabaseMutation.mutate();
+                      }
+                    }
+                  }}
+                  disabled={resetDatabaseMutation.isPending}
+                >
+                  {resetDatabaseMutation.isPending ? 'Resetando...' : 'Resetar banco de dados'}
+                </button>
+              </div>
             </div>
           </section>
 

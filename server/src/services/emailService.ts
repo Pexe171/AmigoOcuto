@@ -8,25 +8,55 @@ const subtleTextStyle =
   "margin: 0; font-size: 14px; line-height: 1.55; color: #075e54; font-family: 'Merriweather', Georgia, serif;";
 
 const SNOWFLAKE_STYLES = [
-  { left: '4%', delay: '0s', duration: '14s', size: '18px', opacity: '0.55' },
-  { left: '14%', delay: '1.2s', duration: '12s', size: '12px', opacity: '0.45' },
-  { left: '24%', delay: '2.4s', duration: '11s', size: '16px', opacity: '0.5' },
-  { left: '34%', delay: '0.6s', duration: '13s', size: '20px', opacity: '0.6' },
-  { left: '44%', delay: '3.2s', duration: '10s', size: '14px', opacity: '0.4' },
-  { left: '54%', delay: '1.8s', duration: '15s', size: '22px', opacity: '0.65' },
-  { left: '64%', delay: '0.9s', duration: '12s', size: '16px', opacity: '0.48' },
-  { left: '74%', delay: '2.7s', duration: '13s', size: '18px', opacity: '0.52' },
-  { left: '84%', delay: '1.4s', duration: '11s', size: '14px', opacity: '0.42' },
-  { left: '94%', delay: '3.6s', duration: '15s', size: '20px', opacity: '0.58' },
-  { left: '10%', delay: '4.2s', duration: '16s', size: '22px', opacity: '0.6' },
-  { left: '70%', delay: '4.8s', duration: '14s', size: '24px', opacity: '0.62' },
+  { left: '4%', top: '10%', size: '18px', opacity: '0.55' },
+  { left: '14%', top: '25%', size: '12px', opacity: '0.45' },
+  { left: '24%', top: '15%', size: '16px', opacity: '0.5' },
+  { left: '34%', top: '30%', size: '20px', opacity: '0.6' },
+  { left: '44%', top: '20%', size: '14px', opacity: '0.4' },
+  { left: '54%', top: '35%', size: '22px', opacity: '0.65' },
+  { left: '64%', top: '12%', size: '16px', opacity: '0.48' },
+  { left: '74%', top: '28%', size: '18px', opacity: '0.52' },
+  { left: '84%', top: '18%', size: '14px', opacity: '0.42' },
+  { left: '94%', top: '32%', size: '20px', opacity: '0.58' },
+  { left: '10%', top: '22%', size: '22px', opacity: '0.6' },
+  { left: '70%', top: '8%', size: '24px', opacity: '0.62' },
+  { left: '6%', top: '40%', size: '16px', opacity: '0.5' },
+  { left: '18%', top: '5%', size: '20px', opacity: '0.55' },
+  { left: '28%', top: '38%', size: '18px', opacity: '0.45' },
+  { left: '38%', top: '12%', size: '14px', opacity: '0.4' },
+  { left: '48%', top: '26%', size: '22px', opacity: '0.6' },
+  { left: '58%', top: '18%', size: '16px', opacity: '0.48' },
+  { left: '68%', top: '35%', size: '20px', opacity: '0.52' },
+  { left: '78%', top: '10%', size: '18px', opacity: '0.42' },
+  { left: '88%', top: '28%', size: '24px', opacity: '0.58' },
+  { left: '2%', top: '20%', size: '16px', opacity: '0.5' },
+  { left: '12%', top: '32%', size: '20px', opacity: '0.55' },
+  { left: '22%', top: '8%', size: '18px', opacity: '0.45' },
+  { left: '32%', top: '25%', size: '14px', opacity: '0.4' },
+  { left: '42%', top: '15%', size: '22px', opacity: '0.6' },
+  { left: '52%', top: '30%', size: '16px', opacity: '0.48' },
+  { left: '62%', top: '22%', size: '20px', opacity: '0.52' },
+  { left: '72%', top: '12%', size: '18px', opacity: '0.42' },
+  { left: '82%', top: '28%', size: '24px', opacity: '0.58' },
+  { left: '92%', top: '18%', size: '16px', opacity: '0.5' },
 ];
 
 const renderSnowOverlay = (): string =>
   SNOWFLAKE_STYLES.map(
     (flake) =>
-      `<span class="email-snowflake" aria-hidden="true" style="left: ${flake.left}; animation-delay: ${flake.delay}; animation-duration: ${flake.duration}; font-size: ${flake.size}; opacity: ${flake.opacity};">❄</span>`,
+      `<span class="email-snowflake" aria-hidden="true" style="left: ${flake.left}; top: ${flake.top}; font-size: ${flake.size}; opacity: ${flake.opacity};">❄</span>`,
   ).join('');
+
+const renderChristmasElements = (): string => `
+  <div class="email-christmas-tree" aria-hidden="true" style="position: absolute; bottom: 20px; left: 20px; font-size: 28px; color: #166534; opacity: 0.85; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🎄</div>
+  <div class="email-present" aria-hidden="true" style="position: absolute; bottom: 20px; right: 20px; font-size: 24px; color: #dc2626; opacity: 0.85; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🎁</div>
+  <div class="email-lights" aria-hidden="true" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 18px; opacity: 0.8;">✨🎇✨</div>
+  <div class="email-ornament-1" aria-hidden="true" style="position: absolute; top: 15px; left: 15px; font-size: 16px; color: #dc2626; opacity: 0.7;">🟢</div>
+  <div class="email-ornament-2" aria-hidden="true" style="position: absolute; top: 25px; right: 15px; font-size: 14px; color: #7c3aed; opacity: 0.7;">🔵</div>
+  <div class="email-ornament-3" aria-hidden="true" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #ea580c; opacity: 0.7;">🟡</div>
+  <div class="email-candy-cane" aria-hidden="true" style="position: absolute; top: 10px; right: 10px; font-size: 14px; color: #dc2626; opacity: 0.6;">🍭</div>
+  <div class="email-star" aria-hidden="true" style="position: absolute; top: -5px; left: 50%; transform: translateX(-50%); font-size: 20px; color: #fbbf24; opacity: 0.9; filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));">⭐</div>
+`;
 
 const capitalise = (value: string): string => {
   if (value.length === 0) {
@@ -120,6 +150,7 @@ const renderEmailTemplate = ({
     .join('');
   const greetingHtml = greeting ? `<p style="${paragraphStyle}">${greeting}</p>` : '';
   const snowOverlay = renderSnowOverlay();
+  const christmasElements = renderChristmasElements();
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

@@ -14,7 +14,8 @@ import {
   addParticipantToEvent,
   removeParticipantFromEvent,
   getEventDetails,
-  deleteExistingEvent
+  deleteExistingEvent,
+  resetDatabaseData
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
@@ -36,5 +37,6 @@ router.get('/events/:eventId', getEventDetails);
 router.post('/events/:eventId/participants/:participantId', addParticipantToEvent);
 router.delete('/events/:eventId/participants/:participantId', removeParticipantFromEvent);
 router.delete('/events/:eventId', deleteExistingEvent);
+router.delete('/database', resetDatabaseData);
 
 export default router;
