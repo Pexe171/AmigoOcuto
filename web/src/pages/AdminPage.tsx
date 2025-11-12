@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -112,7 +112,7 @@ const AdminPage: React.FC = () => {
       setIsAuthenticated(true);
       show('success', 'Sessão administrativa restaurada.');
     },
-    onError: (error) => {
+    onError: () => {
       localStorage.removeItem(TOKEN_KEY);
       setToken(null);
       setIsAuthenticated(false);
@@ -127,22 +127,22 @@ const AdminPage: React.FC = () => {
     } else if (!token) {
       navigate('/adm');
     }
-  }, [token, isAuthenticated, navigate]);
+  }, [token, isAuthenticated, navigate, restoreSessionMutation]);
 
-  const handleLogout = (): void => {
+  const handleLogout = useCallback((): void => {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setIsAuthenticated(false);
     show('info', 'Sessão administrativa encerrada.');
     navigate('/adm');
-  };
+  }, [show, navigate]);
   
-  const clearSessionSilently = (): void => {
+  const clearSessionSilently = useCallback((): void => {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setIsAuthenticated(false);
     navigate('/adm');
-  };
+  }, [navigate]);
 
   // ... (all queries and mutations remain the same, but will now correctly use the auth state)
   const eventsQuery = useQuery<EventSummary[]>({
@@ -241,7 +241,7 @@ const AdminPage: React.FC = () => {
       const response = await api.delete(`/admin/events/${eventId}`, axiosAuthConfig);
       return response.data as { message: string };
     },
-    onSuccess: (_data, eventId) => {
+    onSuccess: () => {
       show('success', `Evento deletado com sucesso.`);
       void eventsQuery.refetch();
     },
@@ -304,18 +304,14 @@ const AdminPage: React.FC = () => {
     }
   });
 
-  const createEventMutation = useMutation<EventSummary, unknown, { name: string; location?: string | null; drawDateTime?: string; moderatorEmail?: string; formElement?: HTMLFormElement }>({
+  const createEventMutation = useMutation<EventSummary, unknown, { name: string; location?: string | null; drawDateTime?: string; moderatorEmail?: string }>({
     mutationFn: async (newEvent) => {
-      const { formElement, ...eventData } = newEvent;
-      const response = await api.post('/admin/events', eventData, axiosAuthConfig);
+      const response = await api.post('/admin/events', newEvent, axiosAuthConfig);
       return response.data as EventSummary;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (data) => {
       show('success', `Evento "${data.name}" criado com sucesso.`);
       void eventsQuery.refetch();
-      if (variables.formElement) {
-        variables.formElement.reset();
-      }
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -335,62 +331,50 @@ const AdminPage: React.FC = () => {
     refetchOnWindowFocus: false
   });
 
-  const eventDetailsQuery = useQuery({
-    queryKey: ['admin-event-details', selectedEventForMembers, token],
-    queryFn: async () => {
-      const response = await api.get(`/admin/events/${selectedEventForMembers}`, axiosAuthConfig);
-      return response.data;
-    },
-    enabled: isAuthenticated && Boolean(selectedEventForMembers),
-    refetchOnWindowFocus: false
-  });
+
 
   useEffect(() => {
-    const error = eventsQuery.error;
-    if (!error) {
+    if (!eventsQuery.error) {
       return;
     }
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    if (axios.isAxiosError(eventsQuery.error) && eventsQuery.error.response?.status === 401) {
       clearSessionSilently();
     }
-    show('error', extractErrorMessage(error));
-  }, [eventsQuery.error, show]);
+    show('error', extractErrorMessage(eventsQuery.error));
+  }, [eventsQuery.error, show, clearSessionSilently]);
 
   useEffect(() => {
-    const error = participantsQuery.error;
-    if (!error) {
+    if (!participantsQuery.error) {
       return;
     }
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    if (axios.isAxiosError(participantsQuery.error) && participantsQuery.error.response?.status === 401) {
       clearSessionSilently();
     }
-    show('error', extractErrorMessage(error));
-  }, [participantsQuery.error, show]);
+    show('error', extractErrorMessage(participantsQuery.error));
+  }, [participantsQuery.error, show, clearSessionSilently]);
 
   useEffect(() => {
-    const error = participantDetailsQuery.error;
-    if (!error) {
+    if (!participantDetailsQuery.error) {
       return;
     }
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    if (axios.isAxiosError(participantDetailsQuery.error) && participantDetailsQuery.error.response?.status === 401) {
       clearSessionSilently();
       return;
     }
-    show('error', extractErrorMessage(error));
-  }, [participantDetailsQuery.error, show]);
+    show('error', extractErrorMessage(participantDetailsQuery.error));
+  }, [participantDetailsQuery.error, show, clearSessionSilently]);
 
   useEffect(() => {
-    const error = historyQuery.error;
-    if (!error) {
+    if (!historyQuery.error) {
       return;
     }
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    if (axios.isAxiosError(historyQuery.error) && historyQuery.error.response?.status === 401) {
       clearSessionSilently();
     }
-    show('error', extractErrorMessage(error));
-  }, [historyQuery.error, show]);
+    show('error', extractErrorMessage(historyQuery.error));
+  }, [historyQuery.error, show, clearSessionSilently]);
 
-  const participants: ParticipantSummary[] = participantsQuery.data ?? [];
+  const participants = useMemo(() => participantsQuery.data ?? [], [participantsQuery.data]);
   const events: EventSummary[] = eventsQuery.data ?? [];
   const history: EventHistory | undefined = historyQuery.data;
   const selectedParticipant: ParticipantDetail | null = participantDetailsQuery.data ?? null;
@@ -406,7 +390,7 @@ const AdminPage: React.FC = () => {
     return { total, verified, totalEmails, attendingInPerson };
   }, [participants]);
 
-  const handleDeleteParticipant = (participant: ParticipantSummary): void => {
+  const handleDeleteParticipant = useCallback((participant: ParticipantSummary): void => {
     const confirmation = window.confirm(
       `Tem certeza que deseja remover "${participant.fullName}" da lista de participantes confirmados?`
     );
@@ -415,7 +399,27 @@ const AdminPage: React.FC = () => {
     }
     setParticipantBeingDeleted(participant.id);
     deleteParticipantMutation.mutate({ participantId: participant.id, participantName: participant.fullName });
-  };
+  }, [deleteParticipantMutation]);
+
+  const handleCreateEvent = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const name = (formData.get('eventName') as string | null) ?? '';
+    const location = (formData.get('eventLocation') as string | null) ?? '';
+    const drawDateTime = (formData.get('drawDateTime') as string | null) ?? '';
+    const moderatorEmail = (formData.get('moderatorEmail') as string | null) ?? '';
+    const normalizedName = name.trim();
+    const normalizedLocation = location.trim();
+    const normalizedDrawDateTime = drawDateTime.trim();
+    const normalizedModeratorEmail = moderatorEmail.trim();
+
+    createEventMutation.mutate({
+      name: normalizedName,
+      location: normalizedLocation.length > 0 ? normalizedLocation : undefined,
+      drawDateTime: normalizedDrawDateTime.length > 0 ? new Date(normalizedDrawDateTime).toISOString() : undefined,
+      moderatorEmail: normalizedModeratorEmail.length > 0 ? normalizedModeratorEmail : undefined,
+    });
+  }, [createEventMutation]);
 
   const getDrawButtonState = (event: EventSummary): { disabled: boolean; reason?: string } => {
     if (event.status !== 'ativo') {
@@ -688,26 +692,7 @@ const AdminPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-white">Criar novo evento</h3>
             <form
               className="flex flex-col gap-3 rounded-2xl border border-white/20 bg-black/20 p-6 md:flex-row md:items-end"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const name = (formData.get('eventName') as string | null) ?? '';
-                const location = (formData.get('eventLocation') as string | null) ?? '';
-                const drawDateTime = (formData.get('drawDateTime') as string | null) ?? '';
-                const moderatorEmail = (formData.get('moderatorEmail') as string | null) ?? '';
-                const normalizedName = name.trim();
-                const normalizedLocation = location.trim();
-                const normalizedDrawDateTime = drawDateTime.trim();
-                const normalizedModeratorEmail = moderatorEmail.trim();
-
-                createEventMutation.mutate({
-                  name: normalizedName,
-                  location: normalizedLocation.length > 0 ? normalizedLocation : undefined,
-                  drawDateTime: normalizedDrawDateTime.length > 0 ? new Date(normalizedDrawDateTime).toISOString() : undefined,
-                  moderatorEmail: normalizedModeratorEmail.length > 0 ? normalizedModeratorEmail : undefined,
-                  formElement: e.currentTarget,
-                });
-              }}
+              onSubmit={handleCreateEvent}
             >
               <div className="flex-grow">
                 <label htmlFor="eventName" className={labelClass}>

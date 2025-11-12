@@ -383,11 +383,11 @@ const RegistrationPage: React.FC = () => {
         )}
 
         <div className="flex justify-end">
-          <button 
-            type="submit" 
-            className={primaryButtonClass} 
+          <button
+            type="submit"
+            className={primaryButtonClass}
             disabled={loading}
-            onClick={(e) => {
+            onClick={() => {
               console.log('Botão clicado, loading:', loading);
               // Não prevenir o default - deixar o handleSubmit fazer o trabalho
             }}

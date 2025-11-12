@@ -28,7 +28,7 @@ export const Button = ({ to, children, variant = 'primary', className = '', type
 
   if (to) {
     return (
-      <Link to={to} className={composedClass} {...(props as never)}>
+      <Link to={to} className={composedClass}>
         {children}
       </Link>
     );

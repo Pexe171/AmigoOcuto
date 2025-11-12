@@ -1,15 +1,14 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 import { createNotificationStore } from '../../src/hooks/useNotification';
 
 describe('createNotificationStore', () => {
   it('stores and clears notifications', () => {
     const store = createNotificationStore();
 
-    assert.equal(store.get(), null);
+    expect(store.get()).toBe(null);
     store.show('success', 'Tudo certo!');
-    assert.deepEqual(store.get(), { type: 'success', message: 'Tudo certo!' });
+    expect(store.get()).toEqual({ type: 'success', message: 'Tudo certo!' });
     store.clear();
-    assert.equal(store.get(), null);
+    expect(store.get()).toBe(null);
   });
 });

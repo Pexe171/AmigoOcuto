@@ -28,7 +28,6 @@ const GiftListAuthPage: React.FC = () => {
     register,
     handleSubmit,
     getValues,
-    setValue,
     formState: { errors },
   } = useForm<AuthForm>({
     resolver: zodResolver(authSchema) as Resolver<AuthForm>,

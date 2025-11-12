@@ -88,7 +88,7 @@ const VerificationPage: React.FC = () => {
       });
       // The backend response from /api/participants/verify is:
       // { id: string, emailVerified: boolean, message: string }
-      const { id, emailVerified, message } = response.data as { id: string, emailVerified: boolean, message: string };
+      const { id, message } = response.data as { id: string, message: string };
       
       // Update participant context with the ID and other relevant info
       // Note: A token is NOT returned by the /verify endpoint, so we cannot set it here.
