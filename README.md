@@ -97,6 +97,7 @@ npm --prefix web run build
 3. **Lista de presentes**
    - Clique em **Construir Lista** na página inicial (ou acesse diretamente `/login`). Primeiro informe o e-mail validado para receber um código temporário; depois valide o código para entrar.
    - O painel `/listas` traz indicadores de progresso, resumo do cadastro e atalhos para adicionar, marcar ou remover itens em tempo real.
+   - Após o sorteio, a tela "Seu amigo secreto" mostra o nome de quem você irá presentear e permite abrir a lista de desejos diretamente no navegador, sem depender apenas do e-mail enviado.
    - O e-mail que entrega o código deixa claro qual endereço recebeu a mensagem, facilitando a identificação pelos participantes.
 
 4. **Painel administrativo**

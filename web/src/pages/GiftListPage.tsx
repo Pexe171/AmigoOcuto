@@ -15,13 +15,27 @@ import {
   textareaClass,
 } from '../styles/theme';
 
+type GiftPriority = 'alta' | 'media' | 'baixa';
+
 interface GiftItem {
   id: string;
   name: string;
   url?: string;
   notes?: string;
+  description?: string;
+  priority?: GiftPriority;
   purchased: boolean;
 }
+
+interface AssignedFriend {
+  id: string;
+  firstName: string;
+  secondName: string;
+  fullName: string;
+  isChild: boolean;
+}
+
+type AssignmentStatus = 'loading' | 'available' | 'pending' | 'error';
 
 const GiftListPage: React.FC = () => {
   const { participant, clearParticipant } = useParticipant();
@@ -33,6 +47,11 @@ const GiftListPage: React.FC = () => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemUrl, setNewItemUrl] = useState('');
   const [newItemNotes, setNewItemNotes] = useState('');
+  const [assignedFriend, setAssignedFriend] = useState<AssignedFriend | null>(null);
+  const [assignedFriendGifts, setAssignedFriendGifts] = useState<GiftItem[]>([]);
+  const [assignmentStatus, setAssignmentStatus] = useState<AssignmentStatus>('loading');
+  const [assignmentMessage, setAssignmentMessage] = useState<string | null>(null);
+  const [showFriendList, setShowFriendList] = useState(false);
 
   const handleLogout = useCallback(() => {
     clearParticipant();
@@ -48,14 +67,71 @@ const GiftListPage: React.FC = () => {
     }
 
     setLoading(true);
+    setAssignmentStatus('loading');
+    setAssignmentMessage(null);
     try {
-      const listResponse = await api.get(`/gift-lists/${participant.id}`, {
-        headers: {
-          Authorization: `Bearer ${participant.token}`,
-        },
-      });
+      const headers = {
+        Authorization: `Bearer ${participant.token}`,
+      };
+
+      const assignmentPromise = api
+        .get(`/gift-lists/${participant.id}/assigned-friend`, { headers })
+        .then((response) => ({ ok: true as const, data: response.data }))
+        .catch((error) => ({ ok: false as const, error }));
+
+      const [listResponse, assignmentResult] = await Promise.all([
+        api.get(`/gift-lists/${participant.id}`, { headers }),
+        assignmentPromise,
+      ]);
 
       setGiftList(listResponse.data.items || []);
+
+      if (assignmentResult.ok) {
+        const { assignedParticipant, giftItems } = assignmentResult.data;
+        setAssignedFriend({
+          id: assignedParticipant.id,
+          firstName: assignedParticipant.firstName,
+          secondName: assignedParticipant.secondName,
+          fullName: assignedParticipant.fullName,
+          isChild: assignedParticipant.isChild,
+        });
+        setAssignedFriendGifts(giftItems || []);
+        setAssignmentStatus('available');
+        setAssignmentMessage(null);
+      } else if (axios.isAxiosError(assignmentResult.error)) {
+        const { response } = assignmentResult.error;
+
+        if (response && (response.status === 401 || response.status === 403)) {
+          setAssignedFriend(null);
+          setAssignedFriendGifts([]);
+          setShowFriendList(false);
+          setAssignmentStatus('error');
+          setAssignmentMessage('Sua sessão expirou. Entre novamente para ver o amigo secreto.');
+          handleLogout();
+          return;
+        }
+
+        if (response && response.status === 404) {
+          setAssignedFriend(null);
+          setAssignedFriendGifts([]);
+          setAssignmentStatus('pending');
+          setAssignmentMessage('Assim que o sorteio for realizado, você verá aqui quem presenteará.');
+        } else {
+          const message = extractErrorMessage(assignmentResult.error);
+          setAssignedFriend(null);
+          setAssignedFriendGifts([]);
+          setAssignmentStatus('error');
+          setAssignmentMessage(message);
+          show('error', message);
+        }
+      } else {
+        const message = extractErrorMessage(assignmentResult.error);
+        setAssignedFriend(null);
+        setAssignedFriendGifts([]);
+        setAssignmentStatus('error');
+        setAssignmentMessage(message);
+        show('error', message);
+      }
     } catch (error) {
       show('error', extractErrorMessage(error));
       if (
@@ -76,6 +152,12 @@ const GiftListPage: React.FC = () => {
     }
     void fetchDashboardData();
   }, [participant.token, participant.id, fetchDashboardData]);
+
+  useEffect(() => {
+    if (assignmentStatus !== 'available') {
+      setShowFriendList(false);
+    }
+  }, [assignmentStatus]);
 
   const handleAddItem = async () => {
     if (!newItemName.trim()) {
@@ -165,6 +247,108 @@ const GiftListPage: React.FC = () => {
       {notification && <Notification type={notification.type} message={notification.message} onClose={clear} />}
 
       <div className="space-y-10">
+        <section className="rounded-3xl border border-emerald-200/30 bg-emerald-400/10 p-6 shadow-lg shadow-black/30">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-white">Seu amigo secreto</h3>
+              <p className="text-sm text-white/70">
+                Consulte os detalhes de quem você irá presentear e acompanhe a lista de desejos sem depender do e-mail.
+              </p>
+            </div>
+            {assignmentStatus === 'available' && (
+              <button
+                type="button"
+                onClick={() => setShowFriendList((previous) => !previous)}
+                className={primaryButtonClass}
+              >
+                {showFriendList ? 'Esconder lista' : 'Ver lista de desejos'}
+              </button>
+            )}
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5 text-white">
+            {assignmentStatus === 'loading' && (
+              <p className="text-sm text-white/80">
+                Estamos confirmando o resultado do sorteio. Em instantes você verá o seu amigo secreto aqui.
+              </p>
+            )}
+
+            {assignmentStatus === 'pending' && (
+              <p className="text-sm text-white/80">
+                {assignmentMessage ??
+                  'Assim que o organizador finalizar o sorteio, o nome do seu amigo secreto aparecerá aqui junto com a lista de desejos.'}
+              </p>
+            )}
+
+            {assignmentStatus === 'error' && (
+              <p className="text-sm text-rose-200">
+                {assignmentMessage ??
+                  'Não foi possível carregar os dados do amigo secreto agora. Tente novamente em alguns instantes.'}
+              </p>
+            )}
+
+            {assignmentStatus === 'available' && assignedFriend && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <p className="text-lg font-semibold">{assignedFriend.fullName}</p>
+                  {assignedFriend.isChild && (
+                    <span className="inline-flex w-fit items-center rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100">
+                      Participante infantil
+                    </span>
+                  )}
+                  <p className="text-sm text-white/80">
+                    Clique no botão acima para abrir a lista de desejos cadastrada por {assignedFriend.firstName}.
+                  </p>
+                </div>
+
+                {showFriendList && (
+                  <div className="space-y-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    {assignedFriendGifts.length === 0 ? (
+                      <p className="text-sm text-white/70">
+                        O seu amigo secreto ainda não cadastrou presentes. Volte mais tarde ou entre em contato com o organizador.
+                      </p>
+                    ) : (
+                      <ul className="space-y-4">
+                        {assignedFriendGifts.map((item) => (
+                          <li
+                            key={item.id}
+                            className="rounded-2xl border border-white/20 bg-white/10 p-4 transition hover:border-emerald-200/60 hover:bg-emerald-400/10"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <span className="text-base font-semibold text-white sm:text-lg">{item.name}</span>
+                                {item.priority && (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100">
+                                    Prioridade {item.priority}
+                                  </span>
+                                )}
+                              </div>
+                              {item.description && <p className="text-sm text-white/80">{item.description}</p>}
+                              {item.notes && (
+                                <p className="text-sm text-white/70">Observações: {item.notes}</p>
+                              )}
+                              {item.url && (
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 underline-offset-2 hover:underline"
+                                >
+                                  Abrir sugestão de presente
+                                </a>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
         <div className="rounded-3xl border border-white/20 bg-white/10 p-6 shadow-lg shadow-black/30">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-xl font-semibold text-white">Adicionar novo presente</h3>
