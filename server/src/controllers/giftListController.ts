@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getGiftList, updateGiftListItems } from '../services/giftListService';
+import { getGiftList, updateGiftListItems, getAssignedFriendSummary } from '../services/giftListService';
 import { extractErrorMessage } from '../utils/extractErrorMessage'; // Assuming this utility exists
 
 export const getParticipantGiftList = (req: Request, res: Response): void => {
@@ -11,6 +11,35 @@ export const getParticipantGiftList = (req: Request, res: Response): void => {
     }
     const giftList = getGiftList(participantId);
     res.json(giftList);
+  } catch (error) {
+    res.status(500).json({ message: extractErrorMessage(error) });
+  }
+};
+
+export const getAssignedFriend = (req: Request, res: Response): void => {
+  try {
+    const { participantId } = req.params;
+
+    if (!participantId) {
+      res.status(400).json({ message: 'Informe o identificador do participante.' });
+      return;
+    }
+
+    if (req.participantId && req.participantId !== participantId) {
+      res
+        .status(403)
+        .json({ message: 'Você não tem permissão para visualizar o amigo secreto de outra pessoa.' });
+      return;
+    }
+
+    const summary = getAssignedFriendSummary(participantId);
+
+    if (!summary) {
+      res.status(404).json({ message: 'Ainda não há um amigo secreto disponível para você. Aguarde o sorteio.' });
+      return;
+    }
+
+    res.json(summary);
   } catch (error) {
     res.status(500).json({ message: extractErrorMessage(error) });
   }

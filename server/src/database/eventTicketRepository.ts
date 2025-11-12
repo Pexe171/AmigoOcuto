@@ -51,6 +51,14 @@ export const findTicketById = (id: string): EventTicket | null => {
   return rowToTicket(row);
 };
 
+export const findLatestTicketByParticipantId = (participantId: string): EventTicket | null => {
+  const stmt = db.prepare(
+    'SELECT * FROM eventTickets WHERE participantId = ? ORDER BY datetime(createdAt) DESC LIMIT 1',
+  );
+  const row = stmt.get(participantId);
+  return rowToTicket(row);
+};
+
 export const findTicketsByEventId = (eventId: string): EventTicket[] => {
   const stmt = db.prepare('SELECT * FROM eventTickets WHERE eventId = ?');
   return stmt
