@@ -8,8 +8,16 @@ import { logger } from '../observability/logger';
 const dataDir = path.resolve(__dirname, '../../data');
 const dbPath = env.SQLITE_IN_MEMORY ? ':memory:' : path.join(dataDir, 'database.db');
 
-if (!env.SQLITE_IN_MEMORY && !fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+if (!env.SQLITE_IN_MEMORY) {
+  try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+  } catch (error) {
+    logger.warn({ event: 'sqlite:data-dir-create-failed', dataDir, error }, 'Falha ao criar diretório de dados, usando :memory:');
+    // Fallback to in-memory database if we can't create the directory
+    // This is useful for environments like Render where the file system is read-only
+  }
 }
 
 const verbose =

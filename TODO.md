@@ -1,12 +1,19 @@
-# TODO: Implementar botão de reset do banco de dados no painel admin
+# TODO: Prepare Project for Render Deployment
 
-## Tarefas Pendentes
-- [x] Adicionar função `resetDatabase` no `adminController.ts` que chama `resetDatabase` do `sqliteDatabase.ts`
-- [x] Adicionar rota `DELETE /admin/database` no `adminRoutes.ts`
-- [x] Adicionar botão "Resetar Banco de Dados" no `AdminPage.tsx` com confirmação dupla
-- [x] Testar a funcionalidade do botão
+## Backend Changes
+- [x] Ensure SQLite data directory creation works in production environment
+- [x] Verify build and start scripts work correctly
 
-## Contexto
-- A função `resetDatabase` já existe em `sqliteDatabase.ts` e limpa todas as tabelas
-- O botão deve ter confirmação dupla para evitar acidentes
-- Localizar o botão na seção de "Ferramentas de disparo"
+## Frontend Changes
+- [x] Update API service to use environment variable for backend URL
+- [x] Remove development proxy from Vite config
+- [x] Add VITE_API_URL environment variable support
+
+## Deployment Preparation
+- [x] Test build processes for both frontend and backend
+- [x] Create deployment instructions for Render
+- [x] Document required environment variables for production
+
+## Testing
+- [ ] Test production builds locally
+- [ ] Verify API calls work with environment-based URLs
