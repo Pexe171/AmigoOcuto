@@ -85,7 +85,7 @@ const registrationSchema = z
     guardianEmails: z.array(z.string().email()).optional(),
     attendingInPerson: z.boolean().optional(),
     eventId: z
-      .union([z.string().trim().regex(/^[0-9a-fA-F]{24}$/), z.literal('')])
+      .union([z.string().trim().min(1), z.literal('')])
       .optional()
       .transform((value) => (value && value.length > 0 ? value : undefined)),
   })

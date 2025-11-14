@@ -786,3 +786,79 @@ export const sendDrawReminderEmail = async (
     html,
   });
 };
+
+export const sendGiftListReminderEmail = async (
+  participant: ParticipantEmailData,
+  event: { name: string; location: string | null; drawDateTime?: Date | null },
+): Promise<void> => {
+  const recipientEmails = resolveRecipients(participant);
+  if (recipientEmails.length === 0) {
+    return;
+  }
+
+  const mainRecipient = resolveMainRecipient(participant, recipientEmails);
+  const greeting = mainRecipient
+    ? `Olá ${participant.firstName},`
+    : 'Olá,';
+
+  const locationMessage = event.location
+    ? `Local confirmado: <strong>${event.location}</strong>.`
+    : 'Assim que o local estiver definido, avisaremos todos os participantes.';
+
+  const scheduleHtml = event.drawDateTime
+    ? (() => {
+        const { fullDate, time } = formatDateTimeForEmail(event.drawDateTime);
+        const countdownText = describeTimeUntil(event.drawDateTime);
+        return `
+          <div style="margin: 18px 0 0;">
+            <div class="email-timer" role="group" aria-label="Data e hora do encontro">
+              <div class="email-timer-ring" aria-hidden="true">
+                <span class="email-timer-hand"></span>
+              </div>
+              <div class="email-timer-info">
+                <span class="email-timer-badge">Agenda do encontro</span>
+                <p>Data: <strong>${fullDate}</strong></p>
+                <p>Hora: <strong>${time}</strong></p>
+                <p class="email-timer-countdown">${countdownText}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      })()
+    : '';
+
+  const eventDetailsHtml = `
+    <div style="margin: 24px 0; padding: 24px; border: 1px solid rgba(22, 101, 52, 0.45); background: linear-gradient(160deg, rgba(220, 252, 231, 0.95), rgba(134, 239, 172, 0.88)); border-radius: 18px; box-shadow: 0 18px 36px rgba(20, 83, 45, 0.18);">
+      <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #166534; text-transform: uppercase; letter-spacing: 0.08em;">
+        Detalhes do evento
+      </p>
+      <p style="${paragraphStyle} margin-bottom: 8px;">Evento: <strong>${event.name}</strong></p>
+      ${scheduleHtml}
+      <p style="${paragraphStyle} margin-bottom: 0;">${locationMessage}</p>
+    </div>
+  `;
+
+  const content = `
+    <p style="${paragraphStyle}">Estamos quase prontos para o sorteio do Amigo Ocuto, mas ainda precisamos da sua lista de presentes!</p>
+    <div style="margin: 24px 0; padding: 24px; border-radius: 18px; background: linear-gradient(160deg, rgba(254, 249, 195, 0.95), rgba(254, 240, 138, 0.9)); border: 1px solid rgba(217, 119, 6, 0.3); box-shadow: 0 18px 36px rgba(146, 64, 14, 0.18);">
+      <p style="${paragraphStyle} margin-bottom: 12px;">Para que o sorteio possa acontecer, todos os participantes precisam cadastrar suas sugestões de presentes.</p>
+      <p style="${paragraphStyle} margin-bottom: 12px;">Acesse sua conta no Amigo Ocuto e complete sua lista de presentes o quanto antes.</p>
+      <p style="${paragraphStyle} margin-bottom: 0;">Assim que todos tiverem preenchido, o sorteio será realizado!</p>
+    </div>
+    ${eventDetailsHtml}
+    <p style="${paragraphStyle}">Obrigado por ajudar a tornar este Natal ainda mais especial!</p>
+  `;
+
+  const html = renderEmailTemplate({
+    title: 'Complete sua lista de presentes - Amigo Ocuto',
+    preheader: 'Precisamos da sua lista de presentes para realizar o sorteio.',
+    greeting,
+    content,
+  });
+
+  await mailer.sendMail({
+    to: recipientEmails,
+    subject: 'Complete sua lista de presentes - Amigo Ocuto',
+    html,
+  });
+};

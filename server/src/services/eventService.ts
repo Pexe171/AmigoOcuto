@@ -13,7 +13,7 @@ import {
 } from '../database/eventRepository';
 import { createEventTicket, deleteEventTickets } from '../database/eventTicketRepository';
 import { getParticipantOrFail, Participant } from './participantService';
-import { sendDrawEmailToGuardian, sendDrawEmailToParticipant, sendDrawCancellationEmail } from './emailService';
+import { sendDrawEmailToGuardian, sendDrawEmailToParticipant, sendDrawCancellationEmail, sendGiftListReminderEmail } from './emailService';
 import { generateTicketCode } from '../utils/codeGenerator';
 import { getGiftList, getParticipantsWithoutGiftItems } from './giftListService';
 import { logger } from '../observability/logger';
@@ -55,7 +55,11 @@ const eventSchema = z.object({
     throw new Error('Quando o e-mail do moderador é informado, a data de sorteio deve ser definida.');
   }
   return true;
-});
+}).transform((data) => ({
+  ...data,
+  drawDateTime: data.drawDateTime || undefined,
+  moderatorEmail: data.moderatorEmail || undefined,
+}));
 
 const drawSchema = z.object({
   eventId: z.string().uuid(),
@@ -177,16 +181,32 @@ export const drawEvent = async (input: z.infer<typeof drawSchema>): Promise<{ ev
   const participantsWithoutLists = getParticipantsWithoutGiftItems(participantIds);
 
   if (participantsWithoutLists.length > 0) {
-    const missingNames = verifiedParticipants
-      .filter((participant) => participantsWithoutLists.includes(participant.id))
-      .map((participant) => `${participant.firstName} ${participant.secondName}`.trim());
+    // Send reminder emails to participants without gift lists
+    const participantsToRemind = verifiedParticipants.filter((participant) =>
+      participantsWithoutLists.includes(participant.id)
+    );
+
+    for (const participant of participantsToRemind) {
+      try {
+        await sendGiftListReminderEmail(participant, event);
+      } catch (emailError) {
+        logger.error(
+          { event: 'event:send-reminder-email-failed', participantId: participant.id, error: emailError },
+          `Failed to send reminder email to participant ${participant.id}: ${(emailError as Error).message}`,
+        );
+      }
+    }
+
+    const missingNames = participantsToRemind.map((participant) =>
+      `${participant.firstName} ${participant.secondName}`.trim()
+    );
     const formattedNames = missingNames.length > 1
       ? `${missingNames.slice(0, -1).join(', ')} e ${missingNames.slice(-1)}`
       : missingNames[0] ?? '';
     const subject = missingNames.length > 1 ? 'os participantes' : 'o participante';
     const verb = missingNames.length > 1 ? 'não cadastraram' : 'não cadastrou';
     throw new Error(
-      `Não é possível realizar o sorteio porque ${subject} ${formattedNames} ${verb} a lista de presentes. Peça para preencher antes de tentar novamente.`,
+      `Não é possível realizar o sorteio porque ${subject} ${formattedNames} ${verb} a lista de presentes. Enviamos lembretes por e-mail para que preencham suas listas. Tente novamente em alguns minutos.`,
     );
   }
 

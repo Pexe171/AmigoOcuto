@@ -42,7 +42,7 @@ const registrationSchema = z
     primaryGuardianEmail: z.string().email('Informe um e-mail válido').optional(),
     guardians: z.array(guardianSchema).default([]),
     eventId: z
-      .union([z.string().trim().regex(/^[0-9a-fA-F]{24}$/), z.literal('')])
+      .union([z.string().trim().min(1), z.literal('')])
       .optional()
       .transform((value) => (value && value.length > 0 ? value : undefined)),
   })

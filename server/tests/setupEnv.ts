@@ -12,4 +12,4 @@ process.env.AUDIT_LOG_PATH = `${process.cwd()}/data/test-auth-audit.log`;
 process.env.ENABLE_HTTP_METRICS = 'true';
 process.env.SQLITE_IN_MEMORY = 'true';
 
-export {};
+module.exports = {};
