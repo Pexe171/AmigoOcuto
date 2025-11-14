@@ -52,7 +52,7 @@ This project consists of a Node.js backend API and a React frontend. Both can be
 
 4. **Environment Variables:**
    ```
-   VITE_API_URL=https://your-backend-service-name.onrender.com/api
+   VITE_API_URL=https://amigooculto.onrender.com/api
    ```
 
 ## Important Notes
