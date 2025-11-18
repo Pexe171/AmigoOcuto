@@ -56,10 +56,10 @@ const ParticipantLoginPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (participant.token) {
+    if (participant.id) {
       navigate('/listas');
     }
-  }, [participant.token, navigate]);
+  }, [participant.id, navigate]);
 
   useEffect(() => {
     const emailParam = searchParams.get('email');
@@ -100,18 +100,18 @@ const ParticipantLoginPage: React.FC = () => {
     clear();
     try {
       const response = await api.post('/participants/login', { email: normalizedEmail, code });
-      const { token, participant: participantData } = response.data as ParticipantLoginResponse;
+      const { participant: participantData } = response.data as ParticipantLoginResponse;
 
       setParticipant({
         id: participantData.id,
         firstName: participantData.firstName,
         isChild: participantData.isChild,
-        contactEmail: participantData.contactEmail ?? null,
-        token,
+        contactEmail: participantData.contactEmail ?? participantData.email ?? null,
         giftListAuthToken: null,
       });
 
       show('success', `Bem-vindo(a), ${participantData.firstName}!`);
+      navigate('/listas');
     } catch (error) {
       show('error', extractErrorMessage(error));
     } finally {

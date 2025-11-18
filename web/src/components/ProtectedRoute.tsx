@@ -13,7 +13,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const location = useLocation();
   const hasWarnedRef = useRef(false);
 
-  const isAuthenticated = Boolean(participant.token);
+  const isAuthenticated = Boolean(participant.id);
 
   useEffect(() => {
     if (isReady && !isAuthenticated && !hasWarnedRef.current) {

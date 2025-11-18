@@ -3,15 +3,6 @@ import jwt from 'jsonwebtoken';
 import { findParticipantById } from '../database/participantRepository';
 import { secretManager } from '../security/secretManager';
 
-// Extend the Request type to include participantId
-declare global {
-  namespace Express {
-    interface Request {
-      participantId?: string;
-    }
-  }
-}
-
 interface ParticipantTokenPayload extends jwt.JwtPayload {
   participantId: string; // Stored as string in JWT
   email?: string;

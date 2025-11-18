@@ -11,6 +11,7 @@ import {
   authenticateParticipant,
   requestVerificationCode,
   getCurrentParticipant,
+  logoutParticipant,
 } from '../controllers/participantController';
 import { requireParticipantAuth } from '../middlewares/participantAuth';
 
@@ -24,6 +25,9 @@ router.post('/verify', confirmParticipant);
 
 // POST /api/participants/login -> autentica o participante e retorna um token
 router.post('/login', authenticateParticipant);
+
+// POST /api/participants/logout -> encerra a sessão atual removendo o cookie
+router.post('/logout', logoutParticipant);
 
 // POST /api/participants/request-verification-code -> envia código para login/confirmacao
 router.post('/request-verification-code', requestVerificationCode);

@@ -6,14 +6,14 @@ Resolver o problema de perda de sessão quando o usuário sai do app para verifi
 ## Passos
 
 ### Backend
-- [ ] Modificar `server/src/middlewares/participantAuth.ts` para aceitar token via cookie HTTP-only
-- [ ] Modificar `server/src/controllers/participantController.ts` para setar cookie no login
-- [ ] Criar endpoint `/me` em `server/src/controllers/participantController.ts` para verificar sessão
-- [ ] Adicionar rota `/me` em `server/src/routes/participantRoutes.ts`
+- [x] Modificar `server/src/middlewares/participantAuth.ts` para aceitar token via cookie HTTP-only
+- [x] Modificar `server/src/controllers/participantController.ts` para setar cookie no login
+- [x] Criar endpoint `/me` em `server/src/controllers/participantController.ts` para verificar sessão
+- [x] Adicionar rota `/me` em `server/src/routes/participantRoutes.ts`
 
 ### Frontend
-- [ ] Modificar `web/src/services/api.ts` para incluir função `getCurrentParticipant`
-- [ ] Modificar `web/src/context/ParticipantContext.tsx` para tentar restaurar sessão via `/me` no carregamento
+- [x] Modificar `web/src/services/api.ts` para incluir função `getCurrentParticipant`
+- [x] Modificar `web/src/context/ParticipantContext.tsx` para tentar restaurar sessão via `/me` no carregamento
 
 ## Testes
 - [ ] Verificar se a sessão persiste após sair do app

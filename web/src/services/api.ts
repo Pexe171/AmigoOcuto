@@ -3,7 +3,8 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const api = axios.create({
-  baseURL: API_BASE_URL
+  baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
 export type ApiError = {
@@ -61,6 +62,14 @@ export const getCurrentParticipant = async (): Promise<ParticipantData> => {
   try {
     const response = await api.get('/participants/me');
     return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const logoutParticipantSession = async (): Promise<void> => {
+  try {
+    await api.post('/participants/logout');
   } catch (error) {
     throw new Error(extractErrorMessage(error));
   }

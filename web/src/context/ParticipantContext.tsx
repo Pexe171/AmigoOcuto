@@ -8,14 +8,13 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
-import { getCurrentParticipant, type ParticipantData } from '../services/api';
+import { getCurrentParticipant } from '../services/api';
 
 type ParticipantState = {
   id: string | null;
   firstName: string | null;
   isChild: boolean;
   contactEmail: string | null;
-  token: string | null;
   giftListAuthToken: string | null;
 };
 
@@ -31,7 +30,6 @@ const defaultState: ParticipantState = {
   firstName: null,
   isChild: false,
   contactEmail: null,
-  token: null,
   giftListAuthToken: null,
 };
 
@@ -50,7 +48,6 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
           firstName: parsed.firstName ?? null,
           isChild: parsed.isChild ?? false,
           contactEmail: parsed.contactEmail ?? null,
-          token: parsed.token ?? null,
           giftListAuthToken: parsed.giftListAuthToken ?? null,
         };
       } catch (error) {
@@ -61,42 +58,45 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
   });
   const [isReady, setIsReady] = useState(false);
 
-  // Tentar restaurar sessão via cookie no carregamento
   useEffect(() => {
+    let isMounted = true;
+
     const restoreSession = async () => {
       try {
         const participantData = await getCurrentParticipant();
+        if (!isMounted) {
+          return;
+        }
         setParticipantState({
           id: participantData.id,
-          firstName: participantData.firstName,
+          firstName: participantData.firstName ?? participantData.fullName ?? null,
           isChild: participantData.isChild,
           contactEmail: participantData.contactEmail,
-          token: null, // Token vem do cookie, não precisa armazenar no state
           giftListAuthToken: null,
         });
       } catch (error) {
-        // Sessão inválida ou expirada, limpar localStorage
-        localStorage.removeItem(STORAGE_KEY);
+        if (!isMounted) {
+          return;
+        }
         console.warn('Não foi possível restaurar a sessão:', error);
+        setParticipantState(() => ({ ...defaultState }));
+        localStorage.removeItem(STORAGE_KEY);
       } finally {
-        setIsReady(true);
+        if (isMounted) {
+          setIsReady(true);
+        }
       }
     };
 
-    // Só tentar restaurar se não há dados no localStorage E não estamos na página de verificação ou inscrição
-    const currentPath = window.location.pathname;
-    const isVerificationPage = currentPath === '/confirmacao';
-    const isRegistrationPage = currentPath === '/inscricao';
+    void restoreSession();
 
-    if (!participant.id && !participant.token && !isVerificationPage && !isRegistrationPage) {
-      restoreSession();
-    } else {
-      setIsReady(true);
-    }
-  }, []); // Executar apenas uma vez no mount
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
-    if (participant.id && participant.token) {
+    if (participant.id) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(participant));
     } else {
       localStorage.removeItem(STORAGE_KEY);

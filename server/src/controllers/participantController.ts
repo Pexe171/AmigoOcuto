@@ -1,9 +1,22 @@
 ﻿// Este ficheiro deve estar em server/src/controllers/participantController.ts
 import { Request, Response } from 'express';
-import { registerParticipant, verifyParticipant, resendVerificationCode, getParticipantOrFail, searchParticipants, getParticipantByEmailOrFail, updateParticipantEmail, requestVerificationCodeByEmail } from '../services/participantService';
+import jwt from 'jsonwebtoken';
+import {
+  registerParticipant,
+  verifyParticipant,
+  resendVerificationCode,
+  getParticipantOrFail,
+  searchParticipants,
+  getParticipantByEmailOrFail,
+  updateParticipantEmail,
+  requestVerificationCodeByEmail,
+  authenticateParticipantByEmailAndCode,
+} from '../services/participantService';
 import { ensureNames } from '../utils/nameUtils';
 import { logger } from '../observability/logger';
 import { sendWelcomeEmail, ParticipantContact } from '../services/emailService';
+import { secretManager } from '../security/secretManager';
+import { recordAuthEvent } from '../security/auditService';
 
 const resolveParticipantId = (participant: { id?: string; _id?: unknown }): string => {
   if (participant.id) {
@@ -79,6 +92,27 @@ const resolveClientErrorStatus = (normalizedMessage: string): number => {
     return 404;
   }
   return 400;
+};
+
+const PARTICIPANT_COOKIE_NAME = 'participant_token';
+const PARTICIPANT_SESSION_DURATION_MS = 60 * 60 * 1000; // 1 hora
+
+const baseParticipantCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+};
+
+const persistParticipantSession = (res: Response, token: string): void => {
+  res.cookie(PARTICIPANT_COOKIE_NAME, token, {
+    ...baseParticipantCookieOptions,
+    maxAge: PARTICIPANT_SESSION_DURATION_MS,
+  });
+};
+
+const clearParticipantSession = (res: Response): void => {
+  res.clearCookie(PARTICIPANT_COOKIE_NAME, baseParticipantCookieOptions);
 };
 
 // Esta funÃ§Ã£o Ã© chamada quando fazes POST /api/participants
@@ -342,13 +376,6 @@ export const updateEmail = async (
   }
 };
 
-import jwt from 'jsonwebtoken';
-import { authenticateParticipantByEmailAndCode } from '../services/participantService';
-import { secretManager } from '../security/secretManager';
-import { recordAuthEvent } from '../security/auditService';
-import { requireParticipantAuth } from '../middlewares/participantAuth';
-
-
 type ParticipantTokenPayload = {
   participantId: string;
   email?: string;
@@ -376,13 +403,7 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
 
     recordAuthEvent({ subject: 'participant', outcome: 'success', email });
 
-    // Setar cookie HTTP-only para persistir sessão
-    res.cookie('participant_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // HTTPS em produção
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 1000, // 1 hora
-    });
+    persistParticipantSession(res, token);
 
     res.json({
       message: 'Login de participante bem-sucedido.',
@@ -400,6 +421,11 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
   }
+};
+
+export const logoutParticipant = (_req: Request, res: Response): void => {
+  clearParticipantSession(res);
+  res.json({ message: 'Sessão encerrada com sucesso.' });
 };
 
 

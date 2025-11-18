@@ -123,6 +123,7 @@ npm --prefix web run build
 - **React Query** e **React Hook Form** para uma experiência fluida na interface.
 - Armazenamento seguro das sessões administrativas e IDs de participantes no `localStorage` com feedback contextual.
 - Persistência apenas de inscrições com e-mail confirmado, mantendo pendências separadas até a validação.
+- Sessões de participantes persistidas com cookies HTTP-only para evitar perda de acesso ao trocar de aplicativo durante o login.
 
 ## Próximos passos sugeridos
 
