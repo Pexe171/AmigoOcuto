@@ -1,4 +1,4 @@
-import { collectParticipantRecipients, sendTestEmailToParticipant } from './emailService';
+import { collectParticipantRecipients, sendTestEmailToParticipant, sendGiftListWarningEmail } from './emailService';
 import { ensureNames } from '../utils/nameUtils';
 import {
   findAllParticipants,
@@ -14,6 +14,7 @@ import {
   GiftItem,
 } from '../database/giftListRepository';
 import { listVerifiedParticipants } from './participantService';
+import { findEventById } from '../database/eventRepository';
 
 const collectContactEmails = (
   email?: string | null,
@@ -220,6 +221,86 @@ export const sendTestEmailsToAllParticipants = async (): Promise<{
       },
       recipients,
     );
+  }
+
+  return { participants: participantsNotified, recipients: totalRecipients };
+};
+
+export const sendGiftListWarningEmailsToAllParticipants = async (): Promise<{
+  participants: number;
+  recipients: number;
+}> => {
+  const verifiedParticipants = await listVerifiedParticipants();
+  let participantsNotified = 0;
+  let totalRecipients = 0;
+
+  for (const participant of verifiedParticipants) {
+    const recipients = collectParticipantRecipients({
+      isChild: participant.isChild,
+      email: participant.email ?? null,
+      primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+      guardianEmails: participant.guardianEmails ?? [],
+    });
+
+    if (recipients.length === 0) {
+      continue;
+    }
+
+    participantsNotified += 1;
+    totalRecipients += recipients.length;
+
+    await sendGiftListWarningEmail({
+      id: participant.id,
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+      isChild: participant.isChild,
+      email: participant.email ?? null,
+      primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+      guardianEmails: participant.guardianEmails ?? [],
+    });
+  }
+
+  return { participants: participantsNotified, recipients: totalRecipients };
+};
+
+export const sendGiftListWarningEmailsToEventParticipants = async (eventId: string): Promise<{
+  participants: number;
+  recipients: number;
+}> => {
+  const event = findEventById(eventId);
+  if (!event) {
+    throw new Error('Evento não encontrado.');
+  }
+  const participantIds = event.participants;
+  const verifiedParticipants = await listVerifiedParticipants();
+  const eventParticipants = verifiedParticipants.filter(p => participantIds.includes(p.id));
+  let participantsNotified = 0;
+  let totalRecipients = 0;
+
+  for (const participant of eventParticipants) {
+    const recipients = collectParticipantRecipients({
+      isChild: participant.isChild,
+      email: participant.email ?? null,
+      primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+      guardianEmails: participant.guardianEmails ?? [],
+    });
+
+    if (recipients.length === 0) {
+      continue;
+    }
+
+    participantsNotified += 1;
+    totalRecipients += recipients.length;
+
+    await sendGiftListWarningEmail({
+      id: participant.id,
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+      isChild: participant.isChild,
+      email: participant.email ?? null,
+      primaryGuardianEmail: participant.primaryGuardianEmail ?? null,
+      guardianEmails: participant.guardianEmails ?? [],
+    });
   }
 
   return { participants: participantsNotified, recipients: totalRecipients };

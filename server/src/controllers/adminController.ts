@@ -12,6 +12,8 @@ import {
   getParticipantDetailsForAdmin,
   listParticipantsWithGiftSummary,
   sendTestEmailsToAllParticipants,
+  sendGiftListWarningEmailsToAllParticipants,
+  sendGiftListWarningEmailsToEventParticipants,
   exportParticipantsData,
   importParticipantsData
 } from '../services/adminService';
@@ -223,6 +225,37 @@ export const triggerTestEmails = async (_req: Request, res: Response): Promise<v
     const result = await sendTestEmailsToAllParticipants();
     res.json({
       message: 'Disparo de teste executado com sucesso.',
+      participants: result.participants,
+      recipients: result.recipients
+    });
+  } catch (error) {
+    res.status(500).json({ message: (error as Error).message });
+  }
+};
+
+export const triggerGiftListWarningEmails = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await sendGiftListWarningEmailsToAllParticipants();
+    res.json({
+      message: 'Disparo de aviso de lista de presentes executado com sucesso.',
+      participants: result.participants,
+      recipients: result.recipients
+    });
+  } catch (error) {
+    res.status(500).json({ message: (error as Error).message });
+  }
+};
+
+export const triggerGiftListWarningEmailsForEvent = async (req: Request, res: Response): Promise<void> => {
+  const { eventId } = req.params;
+  if (!eventId) {
+    res.status(400).json({ message: 'Informe o identificador do evento.' });
+    return;
+  }
+  try {
+    const result = await sendGiftListWarningEmailsToEventParticipants(eventId);
+    res.json({
+      message: 'Disparo de aviso de lista de presentes executado com sucesso.',
       participants: result.participants,
       recipients: result.recipients
     });

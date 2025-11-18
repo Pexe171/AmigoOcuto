@@ -870,7 +870,7 @@ export const sendWelcomeEmail = async (
   const recipients = resolveRecipients(participant);
   if (recipients.length === 0) {
     return;
-  } 
+  }
 
   const mainRecipient = resolveMainRecipient(participant, recipients);
   const greeting = mainRecipient
@@ -905,6 +905,43 @@ export const sendWelcomeEmail = async (
   await mailer.sendMail({
     to: recipients,
     subject: 'Bem-vindo ao Amigo Ocuto de Natal!',
+    html,
+  });
+};
+
+export const sendGiftListWarningEmail = async (
+  participant: ParticipantEmailData,
+): Promise<void> => {
+  const recipientEmails = resolveRecipients(participant);
+  if (recipientEmails.length === 0) {
+    return;
+  }
+
+  const mainRecipient = resolveMainRecipient(participant, recipientEmails);
+  const greeting = mainRecipient
+    ? `Oi ${participant.firstName}!`
+    : 'Oi!';
+
+  const content = `
+    <p style="${paragraphStyle}">Tudo bem?</p>
+    <div style="margin: 24px 0; padding: 24px; border-radius: 18px; background: linear-gradient(160deg, rgba(254, 249, 195, 0.95), rgba(254, 240, 138, 0.9)); border: 1px solid rgba(217, 119, 6, 0.3); box-shadow: 0 18px 36px rgba(146, 64, 14, 0.18);">
+      <p style="${paragraphStyle} margin-bottom: 12px;">É obrigatório a adição da lista de presentes, por favor.</p>
+      <p style="${paragraphStyle} margin-bottom: 12px;">Para que o sorteio possa ser feito de maneira certa e seu amigo consiga saber o que você deseja receber.</p>
+      <p style="${paragraphStyle} margin-bottom: 0;">Por favor, fique à vontade. Os sorteios só poderão ser realizados quando todos tiverem pelo menos um presente na lista.</p>
+    </div>
+    <p style="${paragraphStyle}">Obrigado por participar desta tradição natalina!</p>
+  `;
+
+  const html = renderEmailTemplate({
+    title: 'Aviso importante sobre a lista de presentes',
+    preheader: 'É obrigatório adicionar pelo menos um presente na sua lista para o sorteio.',
+    greeting,
+    content,
+  });
+
+  await mailer.sendMail({
+    to: recipientEmails,
+    subject: 'Aviso: Lista de presentes obrigatória',
     html,
   });
 };

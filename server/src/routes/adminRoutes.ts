@@ -11,6 +11,8 @@ import {
   getParticipantDetails,
   deleteParticipant,
   triggerTestEmails,
+  triggerGiftListWarningEmails,
+  triggerGiftListWarningEmailsForEvent,
   addParticipantToEvent,
   removeParticipantFromEvent,
   getEventDetails,
@@ -31,6 +33,8 @@ router.get('/participants/export', exportParticipants);
 router.get('/participants/:participantId', getParticipantDetails);
 router.delete('/participants/:participantId', deleteParticipant);
 router.post('/emails/test', triggerTestEmails);
+router.post('/emails/gift-list-warning', triggerGiftListWarningEmails);
+router.post('/events/:eventId/emails/gift-list-warning', triggerGiftListWarningEmailsForEvent);
 router.post('/events', createNewEvent);
 router.get('/events', listAllEvents);
 router.post('/events/:eventId/cancel', cancelExistingEvent);

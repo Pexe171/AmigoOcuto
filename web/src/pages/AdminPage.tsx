@@ -96,6 +96,7 @@ const AdminPage: React.FC = () => {
   const [showMembersModal, setShowMembersModal] = useState<boolean>(false);
   const [selectedEventForMembers, setSelectedEventForMembers] = useState<string | null>(null);
   const [selectedParticipantsToAdd, setSelectedParticipantsToAdd] = useState<string[]>([]);
+  const [drawingEventId, setDrawingEventId] = useState<string | null>(null);
 
   const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const axiosAuthConfig = useMemo(() => ({ headers: authHeaders }), [authHeaders]);
@@ -204,18 +205,21 @@ const AdminPage: React.FC = () => {
 
   const drawEventMutation = useMutation<DrawResult, unknown, string>({
     mutationFn: async (eventId) => {
+      setDrawingEventId(eventId);
       const response = await api.post(`/admin/events/${eventId}/draw`, null, axiosAuthConfig);
       return response.data as DrawResult;
     },
     onSuccess: (data) => {
       show('success', `Sorteio concluído. ${data.tickets} tickets emitidos.`);
       void eventsQuery.refetch();
+      setDrawingEventId(null);
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         clearSessionSilently();
       }
       show('error', extractErrorMessage(error));
+      setDrawingEventId(null);
     }
   });
 
@@ -376,6 +380,22 @@ const AdminPage: React.FC = () => {
     },
     enabled: isAuthenticated && Boolean(selectedEvent),
     refetchOnWindowFocus: false
+  });
+
+  const giftListWarningMutation = useMutation<{ message: string; participants: number; recipients: number }, unknown, string>({
+    mutationFn: async (eventId) => {
+      const response = await api.post(`/admin/events/${eventId}/emails/gift-list-warning`, null, axiosAuthConfig);
+      return response.data as { message: string; participants: number; recipients: number };
+    },
+    onSuccess: (data) => {
+      show('success', `${data.message} ${data.participants} participante(s), ${data.recipients} destinatário(s).`);
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
   });
 
 
@@ -885,18 +905,19 @@ const AdminPage: React.FC = () => {
                                 <button
                                   type="button"
                                   className={secondaryButtonClass}
-                                  onClick={() => setSelectedEvent(event.id)}
+                                  onClick={() => giftListWarningMutation.mutate(event.id)}
+                                  disabled={giftListWarningMutation.isPending}
                                 >
-                                  Histórico
+                                  {giftListWarningMutation.isPending ? 'Enviando...' : 'Aviso lista presentes'}
                                 </button>
                                 <button
                                   type="button"
-                                  className={primaryButtonClass}
+                                  className={`${primaryButtonClass} transition-opacity duration-300 ${drawState.disabled || drawingEventId === event.id ? 'opacity-50' : ''}`}
                                   onClick={() => drawEventMutation.mutate(event.id)}
-                                  disabled={drawEventMutation.isPending || drawState.disabled}
+                                  disabled={(drawingEventId === event.id) || drawState.disabled}
                                   title={drawState.reason ?? undefined}
                                 >
-                                  {drawEventMutation.isPending ? 'Sorteando...' : 'Sortear'}
+                                  {drawingEventId === event.id ? 'Sorteando...' : 'Sortear'}
                                 </button>
                                 <button
                                   type="button"
