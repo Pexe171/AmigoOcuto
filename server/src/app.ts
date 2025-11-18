@@ -9,12 +9,14 @@ import { requestMetrics } from './middlewares/requestMetrics';
 import { rateLimiter } from './middlewares/rateLimiter';
 import { securityHeaders } from './middlewares/securityHeaders';
 import { exportMetrics, metricsEnabled } from './observability/metrics';
+import { cookieParser } from './middlewares/cookieParser';
 
 const app = express();
 
 app.use(securityHeaders);
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser);
 app.use(rateLimiter);
 app.use(requestMetrics);
 app.use((req, res, next) => {

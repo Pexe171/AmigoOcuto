@@ -5,7 +5,7 @@ import FestiveCard from '../components/FestiveCard';
 import Notification from '../components/Notification';
 import { useNotification } from '../hooks/useNotification';
 import { useParticipant } from '../context/ParticipantContext';
-import { api, extractErrorMessage } from '../services/api';
+import { api, extractErrorMessage, logoutParticipantSession } from '../services/api';
 import {
   primaryButtonClass,
   inputClass,
@@ -54,14 +54,17 @@ const GiftListPage: React.FC = () => {
   const [showFriendList, setShowFriendList] = useState(false);
 
   const handleLogout = useCallback(() => {
+    void logoutParticipantSession().catch((error) => {
+      console.warn('Erro ao encerrar sessão do participante:', error);
+    });
     clearParticipant();
     navigate('/login');
     show('info', 'Você foi desconectado.');
   }, [clearParticipant, navigate, show]);
 
   const fetchDashboardData = useCallback(async () => {
-    if (!participant.id || !participant.token) {
-      console.error('Participant is missing credentials, cannot fetch gift list.');
+    if (!participant.id) {
+      console.error('Participant está sem identificador, não é possível carregar a lista.');
       setLoading(false);
       return;
     }
@@ -70,17 +73,13 @@ const GiftListPage: React.FC = () => {
     setAssignmentStatus('loading');
     setAssignmentMessage(null);
     try {
-      const headers = {
-        Authorization: `Bearer ${participant.token}`,
-      };
-
       const assignmentPromise = api
-        .get(`/gift-lists/${participant.id}/assigned-friend`, { headers })
+        .get(`/gift-lists/${participant.id}/assigned-friend`)
         .then((response) => ({ ok: true as const, data: response.data }))
         .catch((error) => ({ ok: false as const, error }));
 
       const [listResponse, assignmentResult] = await Promise.all([
-        api.get(`/gift-lists/${participant.id}`, { headers }),
+        api.get(`/gift-lists/${participant.id}`),
         assignmentPromise,
       ]);
 
@@ -144,14 +143,14 @@ const GiftListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [handleLogout, participant.id, participant.token, show]);
+  }, [handleLogout, participant.id, show]);
 
   useEffect(() => {
-    if (!participant.token || !participant.id) {
+    if (!participant.id) {
       return;
     }
     void fetchDashboardData();
-  }, [participant.token, participant.id, fetchDashboardData]);
+  }, [participant.id, fetchDashboardData]);
 
   useEffect(() => {
     if (assignmentStatus !== 'available') {
@@ -162,6 +161,11 @@ const GiftListPage: React.FC = () => {
   const handleAddItem = async () => {
     if (!newItemName.trim()) {
       show('error', 'O nome do presente não pode ser vazio.');
+      return;
+    }
+    if (!participant.id) {
+      show('error', 'Sua sessão expirou. Faça login novamente.');
+      handleLogout();
       return;
     }
     setSaving(true);
@@ -177,15 +181,7 @@ const GiftListPage: React.FC = () => {
           purchased: false,
         },
       ];
-      await api.put(
-        `/gift-lists/${participant.id}`,
-        { items: updatedList },
-        {
-          headers: {
-            Authorization: `Bearer ${participant.token}`,
-          },
-        },
-      );
+      await api.put(`/gift-lists/${participant.id}`, { items: updatedList });
       setGiftList(updatedList);
       setNewItemName('');
       setNewItemUrl('');
@@ -199,19 +195,16 @@ const GiftListPage: React.FC = () => {
   };
 
   const handleRemoveItem = async (id: string) => {
+    if (!participant.id) {
+      show('error', 'Sua sessão expirou. Faça login novamente.');
+      handleLogout();
+      return;
+    }
     setSaving(true);
     clear();
     try {
       const updatedList = giftList.filter((item) => item.id !== id);
-      await api.put(
-        `/gift-lists/${participant.id}`,
-        { items: updatedList },
-        {
-          headers: {
-            Authorization: `Bearer ${participant.token}`,
-          },
-        },
-      );
+      await api.put(`/gift-lists/${participant.id}`, { items: updatedList });
       setGiftList(updatedList);
       show('success', 'Presente removido com sucesso!');
     } catch (error) {

@@ -180,7 +180,6 @@ const RegistrationPage: React.FC = () => {
           firstName: firstNameFromForm || data.fullName,
           isChild: data.isChild,
           contactEmail,
-          token: null,
           giftListAuthToken: null,
         });
         setRecentRegistration({ id, fullName: data.fullName, contactEmail });

@@ -90,7 +90,7 @@ const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY));
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [selectedEvent] = useState<string | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [participantBeingDeleted, setParticipantBeingDeleted] = useState<string | null>(null);
   const [showMembersModal, setShowMembersModal] = useState<boolean>(false);

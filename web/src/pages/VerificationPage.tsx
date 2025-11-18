@@ -98,7 +98,6 @@ const VerificationPage: React.FC = () => {
         firstName: participant.firstName, // Keep existing firstName from context or fetch if needed
         isChild: participant.isChild, // Keep existing isChild from context or fetch if needed
         contactEmail: data.email, // Use the email from the form
-        token: null, // No token from /verify endpoint
         giftListAuthToken: participant.giftListAuthToken ?? null,
       });
 
@@ -137,7 +136,6 @@ const VerificationPage: React.FC = () => {
         firstName: participant.firstName,
         isChild: participant.isChild,
         contactEmail: data.newEmail,
-        token: participant.token, // Keep existing token
         giftListAuthToken: participant.giftListAuthToken ?? null,
       });
       
