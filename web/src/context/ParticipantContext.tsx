@@ -8,6 +8,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
+import { getCurrentParticipant, type ParticipantData } from '../services/api';
 
 type ParticipantState = {
   id: string | null;
@@ -60,9 +61,39 @@ export const ParticipantProvider: React.FC<{ children: React.ReactNode }> = ({ c
   });
   const [isReady, setIsReady] = useState(false);
 
+  // Tentar restaurar sessão via cookie no carregamento
   useEffect(() => {
-    setIsReady(true);
-  }, []);
+    const restoreSession = async () => {
+      try {
+        const participantData = await getCurrentParticipant();
+        setParticipantState({
+          id: participantData.id,
+          firstName: participantData.firstName,
+          isChild: participantData.isChild,
+          contactEmail: participantData.contactEmail,
+          token: null, // Token vem do cookie, não precisa armazenar no state
+          giftListAuthToken: null,
+        });
+      } catch (error) {
+        // Sessão inválida ou expirada, limpar localStorage
+        localStorage.removeItem(STORAGE_KEY);
+        console.warn('Não foi possível restaurar a sessão:', error);
+      } finally {
+        setIsReady(true);
+      }
+    };
+
+    // Só tentar restaurar se não há dados no localStorage E não estamos na página de verificação ou inscrição
+    const currentPath = window.location.pathname;
+    const isVerificationPage = currentPath === '/confirmacao';
+    const isRegistrationPage = currentPath === '/inscricao';
+
+    if (!participant.id && !participant.token && !isVerificationPage && !isRegistrationPage) {
+      restoreSession();
+    } else {
+      setIsReady(true);
+    }
+  }, []); // Executar apenas uma vez no mount
 
   useEffect(() => {
     if (participant.id && participant.token) {

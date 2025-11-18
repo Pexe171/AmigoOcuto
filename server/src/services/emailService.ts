@@ -240,15 +240,15 @@ const renderEmailTemplate = ({
 export type ParticipantContact = {
   firstName: string;
   isChild: boolean;
-  email?: string;
-  primaryGuardianEmail?: string;
+  email?: string | undefined;
+  primaryGuardianEmail?: string | undefined;
   guardianEmails: string[];
 };
 
 type ParticipantEmailTarget = {
   isChild: boolean;
-  email?: string | null;
-  primaryGuardianEmail?: string | null;
+  email?: string | null | undefined;
+  primaryGuardianEmail?: string | null | undefined;
   guardianEmails?: string[] | null;
 };
 
@@ -859,6 +859,52 @@ export const sendGiftListReminderEmail = async (
   await mailer.sendMail({
     to: recipientEmails,
     subject: 'Complete sua lista de presentes - Amigo Ocuto',
+    html,
+  });
+};
+
+export const sendWelcomeEmail = async (
+  participant: ParticipantContact,
+  isChild: boolean,
+): Promise<void> => {
+  const recipients = resolveRecipients(participant);
+  if (recipients.length === 0) {
+    return;
+  } 
+
+  const mainRecipient = resolveMainRecipient(participant, recipients);
+  const greeting = mainRecipient
+    ? `Olá ${participant.firstName},`
+    : 'Olá,';
+
+  const content = isChild
+    ? `
+      <p style="${paragraphStyle}">Parabéns! A inscrição de ${participant.firstName} foi confirmada com sucesso no Amigo Ocuto de Natal.</p>
+      <div style="margin: 24px 0; padding: 24px; border-radius: 18px; background: linear-gradient(160deg, rgba(220, 252, 231, 0.95), rgba(134, 239, 172, 0.9)); border: 1px solid rgba(22, 101, 52, 0.3); box-shadow: 0 18px 36px rgba(22, 101, 52, 0.18);">
+        <p style="${paragraphStyle} margin-bottom: 12px;">Agora é hora de criar a lista de presentes! Ajude ${participant.firstName} a pensar em ideias especiais que farão o Natal ainda mais mágico.</p>
+        <p style="${paragraphStyle} margin-bottom: 0;">Acesse a conta e comece a adicionar sugestões de presentes. Quanto mais detalhes, melhor!</p>
+      </div>
+      <p style="${paragraphStyle}">Obrigado por participar desta tradição natalina. Que este seja um Natal cheio de alegria e surpresas!</p>
+    `
+    : `
+      <p style="${paragraphStyle}">Parabéns! Sua inscrição foi confirmada com sucesso no Amigo Ocuto de Natal.</p>
+      <div style="margin: 24px 0; padding: 24px; border-radius: 18px; background: linear-gradient(160deg, rgba(220, 252, 231, 0.95), rgba(134, 239, 172, 0.9)); border: 1px solid rgba(22, 101, 52, 0.3); box-shadow: 0 18px 36px rgba(22, 101, 52, 0.18);">
+        <p style="${paragraphStyle} margin-bottom: 12px;">Agora é hora de criar sua lista de presentes! Pense em ideias especiais que farão o Natal ainda mais mágico.</p>
+        <p style="${paragraphStyle} margin-bottom: 0;">Acesse sua conta e comece a adicionar sugestões de presentes. Quanto mais detalhes, melhor!</p>
+      </div>
+      <p style="${paragraphStyle}">Obrigado por participar desta tradição natalina. Que este seja um Natal cheio de alegria e surpresas!</p>
+    `;
+
+  const html = renderEmailTemplate({
+    title: 'Bem-vindo ao Amigo Ocuto de Natal!',
+    preheader: 'Sua inscrição foi confirmada. Agora é hora de criar sua lista de presentes!',
+    greeting,
+    content,
+  });
+
+  await mailer.sendMail({
+    to: recipients,
+    subject: 'Bem-vindo ao Amigo Ocuto de Natal!',
     html,
   });
 };

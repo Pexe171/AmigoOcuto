@@ -11,7 +11,9 @@ import {
   deleteParticipantForAdmin,
   getParticipantDetailsForAdmin,
   listParticipantsWithGiftSummary,
-  sendTestEmailsToAllParticipants
+  sendTestEmailsToAllParticipants,
+  exportParticipantsData,
+  importParticipantsData
 } from '../services/adminService';
 import { resetDatabase } from '../config/sqliteDatabase';
 
@@ -296,5 +298,34 @@ export const resetDatabaseData = (req: Request, res: Response): void => {
   } catch (error) {
     logger.error({ event: 'admin:database-reset-error', error: logStructuredError(error) }, 'Falha ao resetar banco de dados');
     res.status(500).json({ message: 'Falha ao resetar banco de dados.' });
+  }
+};
+
+export const exportParticipants = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const csvData = await exportParticipantsData();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="participantes.csv"');
+    res.send(csvData);
+  } catch (error) {
+    res.status(500).json({ message: (error as Error).message });
+  }
+};
+
+export const importParticipants = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { csvData } = req.body;
+    if (!csvData || typeof csvData !== 'string') {
+      res.status(400).json({ message: 'Dados CSV são obrigatórios.' });
+      return;
+    }
+    const result = await importParticipantsData(csvData);
+    res.json({
+      message: `Importação concluída. ${result.imported} participantes importados.`,
+      imported: result.imported,
+      errors: result.errors
+    });
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
   }
 };

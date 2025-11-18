@@ -10,7 +10,9 @@ import {
   updateEmail,
   authenticateParticipant,
   requestVerificationCode,
+  getCurrentParticipant,
 } from '../controllers/participantController';
+import { requireParticipantAuth } from '../middlewares/participantAuth';
 
 const router = Router();
 
@@ -37,6 +39,9 @@ router.get('/by-email/:email', getParticipantStatusByEmail);
 
 // POST /api/participants/:id/resend -> chama a funÃ§Ã£o resendVerification
 router.post('/:id/resend', resendVerification);
+
+// GET /api/participants/me -> retorna dados do participante autenticado
+router.get('/me', requireParticipantAuth, getCurrentParticipant);
 
 // GET /api/participants/:id -> chama a funÃ§Ã£o getParticipantStatus
 router.get('/:id', getParticipantStatus);

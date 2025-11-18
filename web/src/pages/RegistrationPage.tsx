@@ -192,11 +192,16 @@ const RegistrationPage: React.FC = () => {
           primaryGuardianEmail: '',
           eventId: undefined,
         });
+        // Armazenar e-mail temporariamente para o fluxo de verificação
+        if (contactEmail) {
+          localStorage.setItem('amigoocuto.pending_verification_email', contactEmail);
+        }
+
         // Redirecionar automaticamente para a página de verificação do código
         const successMessage = contactEmail
           ? `${message} Código enviado para ${contactEmail}. Anote o ID: ${id}.`
           : `${message} Anote o ID: ${id}.`;
-        navigate('/confirmacao', {
+        navigate(`/confirmacao?email=${encodeURIComponent(contactEmail || '')}`, {
           state: {
             type: 'success' as const,
             message: successMessage

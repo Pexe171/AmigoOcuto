@@ -15,7 +15,9 @@ import {
   removeParticipantFromEvent,
   getEventDetails,
   deleteExistingEvent,
-  resetDatabaseData
+  resetDatabaseData,
+  exportParticipants,
+  importParticipants
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
@@ -24,6 +26,8 @@ const router = Router();
 router.post('/login', authenticateAdmin);
 router.use(requireAdmin);
 router.get('/participants', listParticipants);
+router.post('/participants/import', importParticipants);
+router.get('/participants/export', exportParticipants);
 router.get('/participants/:participantId', getParticipantDetails);
 router.delete('/participants/:participantId', deleteParticipant);
 router.post('/emails/test', triggerTestEmails);

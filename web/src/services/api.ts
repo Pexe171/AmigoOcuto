@@ -41,3 +41,27 @@ export const adminLogin = async (email: string, password: string): Promise<{ tok
     throw new Error(extractErrorMessage(error));
   }
 };
+
+export type ParticipantData = {
+  id: string;
+  firstName: string;
+  secondName: string;
+  fullName: string;
+  emailVerified: boolean;
+  isChild: boolean;
+  email?: string;
+  primaryGuardianEmail?: string;
+  guardianEmails: string[];
+  attendingInPerson: boolean;
+  contactEmail: string | null;
+  createdAt: string;
+};
+
+export const getCurrentParticipant = async (): Promise<ParticipantData> => {
+  try {
+    const response = await api.get('/participants/me');
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};

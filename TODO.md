@@ -1,19 +1,21 @@
-# TODO: Prepare Project for Render Deployment
+# Implementar Persistência de Sessão com Cookies
 
-## Backend Changes
-- [x] Ensure SQLite data directory creation works in production environment
-- [x] Verify build and start scripts work correctly
+## Objetivo
+Resolver o problema de perda de sessão quando o usuário sai do app para verificar e-mail no Chrome, implementando cookies HTTP-only para persistir a sessão.
 
-## Frontend Changes
-- [x] Update API service to use environment variable for backend URL
-- [x] Remove development proxy from Vite config
-- [x] Add VITE_API_URL environment variable support
+## Passos
 
-## Deployment Preparation
-- [x] Test build processes for both frontend and backend
-- [x] Create deployment instructions for Render
-- [x] Document required environment variables for production
+### Backend
+- [ ] Modificar `server/src/middlewares/participantAuth.ts` para aceitar token via cookie HTTP-only
+- [ ] Modificar `server/src/controllers/participantController.ts` para setar cookie no login
+- [ ] Criar endpoint `/me` em `server/src/controllers/participantController.ts` para verificar sessão
+- [ ] Adicionar rota `/me` em `server/src/routes/participantRoutes.ts`
 
-## Testing
-- [ ] Test production builds locally
-- [ ] Verify API calls work with environment-based URLs
+### Frontend
+- [ ] Modificar `web/src/services/api.ts` para incluir função `getCurrentParticipant`
+- [ ] Modificar `web/src/context/ParticipantContext.tsx` para tentar restaurar sessão via `/me` no carregamento
+
+## Testes
+- [ ] Verificar se a sessão persiste após sair do app
+- [ ] Verificar se o cookie é setado corretamente
+- [ ] Verificar se a restauração automática funciona

@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { registerParticipant, verifyParticipant, resendVerificationCode, getParticipantOrFail, searchParticipants, getParticipantByEmailOrFail, updateParticipantEmail, requestVerificationCodeByEmail } from '../services/participantService';
 import { ensureNames } from '../utils/nameUtils';
 import { logger } from '../observability/logger';
+import { sendWelcomeEmail, ParticipantContact } from '../services/emailService';
 
 const resolveParticipantId = (participant: { id?: string; _id?: unknown }): string => {
   if (participant.id) {
@@ -119,6 +120,18 @@ export const confirmParticipant = async (
       emailVerified: participant.emailVerified,
       message: 'E-mail confirmado com sucesso. Prepare a sua lista de presentes!',
     });
+
+    // Enviar e-mail de boas-vindas após confirmação
+    const contact: ParticipantContact = {
+      firstName: participant.firstName,
+      isChild: participant.isChild,
+      email: participant.email,
+      primaryGuardianEmail: participant.primaryGuardianEmail,
+      guardianEmails: participant.guardianEmails || [],
+    };
+
+    // Enviar e-mail de boas-vindas com instruções
+    await sendWelcomeEmail(contact, participant.isChild);
   } catch (error) {
     recordAuthEvent({
       subject: 'participant',
@@ -147,6 +160,45 @@ export const resendVerification = async (
     });
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });
+  }
+};
+
+// Endpoint /me para verificar sessão atual
+export const getCurrentParticipant = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // O middleware requireParticipantAuth já validou o token e setou req.participantId
+    const participantId = req.participantId;
+    if (!participantId) {
+      res.status(401).json({ message: 'Sessão inválida.' });
+      return;
+    }
+
+    const participant = await getParticipantOrFail(participantId);
+    const guardianEmails = extractGuardianEmails(participant);
+    const contactEmail = participant.isChild
+      ? participant.primaryGuardianEmail ?? guardianEmails[0] ?? null
+      : participant.email ?? null;
+    const names = ensureNames({
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+    });
+
+    res.json({
+      id: resolveParticipantId(participant),
+      firstName: participant.firstName,
+      secondName: participant.secondName,
+      fullName: names.fullName,
+      emailVerified: participant.emailVerified,
+      isChild: participant.isChild,
+      email: participant.email,
+      primaryGuardianEmail: participant.primaryGuardianEmail,
+      guardianEmails,
+      attendingInPerson: participant.attendingInPerson,
+      contactEmail,
+      createdAt: participant.createdAt,
+    });
+  } catch (error) {
+    res.status(401).json({ message: 'Sessão expirada ou inválida.' });
   }
 };
 export const requestVerificationCode = async (
@@ -294,6 +346,7 @@ import jwt from 'jsonwebtoken';
 import { authenticateParticipantByEmailAndCode } from '../services/participantService';
 import { secretManager } from '../security/secretManager';
 import { recordAuthEvent } from '../security/auditService';
+import { requireParticipantAuth } from '../middlewares/participantAuth';
 
 
 type ParticipantTokenPayload = {
@@ -322,6 +375,14 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
     );
 
     recordAuthEvent({ subject: 'participant', outcome: 'success', email });
+
+    // Setar cookie HTTP-only para persistir sessão
+    res.cookie('participant_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // HTTPS em produção
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 1000, // 1 hora
+    });
 
     res.json({
       message: 'Login de participante bem-sucedido.',

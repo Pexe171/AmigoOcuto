@@ -18,13 +18,23 @@ interface ParticipantTokenPayload extends jwt.JwtPayload {
 }
 
 export const requireParticipantAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  let token: string | undefined;
+
+  // Primeiro tenta pegar do header Authorization
   const authorization = req.header('authorization');
-  if (!authorization || !authorization.startsWith('Bearer ')) {
+  if (authorization && authorization.startsWith('Bearer ')) {
+    token = authorization.slice('Bearer '.length).trim();
+  }
+
+  // Se não encontrou no header, tenta pegar do cookie
+  if (!token) {
+    token = req.cookies?.participant_token;
+  }
+
+  if (!token) {
     res.status(401).json({ message: 'Acesso não autorizado. Token não fornecido.' });
     return;
   }
-
-  const token = authorization.slice('Bearer '.length).trim();
   try {
     const decoded = jwt.verify(token, secretManager.getSecret('ADMIN_JWT_SECRET')) as ParticipantTokenPayload;
     if (!decoded.participantId || typeof decoded.participantId !== 'string') {

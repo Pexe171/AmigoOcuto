@@ -304,6 +304,53 @@ const AdminPage: React.FC = () => {
     }
   });
 
+  const exportParticipantsMutation = useMutation<Blob>({
+    mutationFn: async () => {
+      const response = await api.get('/admin/participants/export', {
+        ...axiosAuthConfig,
+        responseType: 'blob'
+      });
+      return response.data as Blob;
+    },
+    onSuccess: (data) => {
+      const url = window.URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'participantes.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      show('success', 'Arquivo CSV exportado com sucesso.');
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
+  });
+
+  const importParticipantsMutation = useMutation<{ imported: number; errors: string[]; message: string }, unknown, string>({
+    mutationFn: async (csvData) => {
+      const response = await api.post('/admin/participants/import', { csvData }, axiosAuthConfig);
+      return response.data as { imported: number; errors: string[]; message: string };
+    },
+    onSuccess: (data) => {
+      show('success', data.message);
+      if (data.errors.length > 0) {
+        show('info', `Erros encontrados: ${data.errors.join('; ')}`);
+      }
+      void participantsQuery.refetch();
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearSessionSilently();
+      }
+      show('error', extractErrorMessage(error));
+    }
+  });
+
   const createEventMutation = useMutation<EventSummary, unknown, { name: string; location?: string | null; drawDateTime?: string; moderatorEmail?: string }>({
     mutationFn: async (newEvent) => {
       const response = await api.post('/admin/events', newEvent, axiosAuthConfig);
@@ -479,6 +526,34 @@ const AdminPage: React.FC = () => {
                 >
                   {testEmailMutation.isPending ? 'Enviando teste...' : 'Disparar e-mail de teste'}
                 </button>
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  onClick={() => exportParticipantsMutation.mutate()}
+                  disabled={exportParticipantsMutation.isPending}
+                >
+                  {exportParticipantsMutation.isPending ? 'Exportando...' : 'Exportar participantes'}
+                </button>
+                <label className={secondaryButtonClass + ' cursor-pointer'}>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const csvData = event.target?.result as string;
+                          importParticipantsMutation.mutate(csvData);
+                        };
+                        reader.readAsText(file);
+                      }
+                    }}
+                    disabled={importParticipantsMutation.isPending}
+                  />
+                  {importParticipantsMutation.isPending ? 'Importando...' : 'Importar participantes'}
+                </label>
                 <button
                   type="button"
                   className={dangerButtonClass}

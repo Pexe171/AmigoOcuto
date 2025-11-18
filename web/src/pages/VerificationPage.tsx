@@ -37,7 +37,7 @@ const VerificationPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams(); // Hook to get query parameters
-  const initialEmail = searchParams.get('email') || ''; // Get email from URL
+  const initialEmail = searchParams.get('email') || localStorage.getItem('amigoocuto.pending_verification_email') || ''; // Get email from URL or localStorage
 
   const {
     register,
@@ -103,7 +103,10 @@ const VerificationPage: React.FC = () => {
       });
 
       show('success', message ?? 'E-mail confirmado com sucesso.');
-      
+
+      // Limpar e-mail temporário do localStorage após verificação bem-sucedida
+      localStorage.removeItem('amigoocuto.pending_verification_email');
+
       // Redirect to login page after successful confirmation
       setTimeout(() => {
         navigate('/login'); // Redirect to login page
