@@ -14,6 +14,7 @@ import {
   dangerButtonClass,
   ghostButtonClass
 } from '../styles/theme';
+import { formatDateToLocal } from '../utils/dateUtils';
 
 // ... (type definitions remain the same)
 type EventSummary = {
@@ -673,7 +674,7 @@ const AdminPage: React.FC = () => {
                         </td>
                         <td className="px-4 py-3">{participantSummary.giftCount}</td>
                         <td className="px-4 py-3">
-                          {new Date(participantSummary.createdAt).toLocaleDateString()}
+                          {formatDateToLocal(participantSummary.createdAt)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
@@ -967,7 +968,7 @@ const AdminPage: React.FC = () => {
               <ul className="space-y-2 text-white/80">
                 {history.sorteios.map((entry, index) => (
                   <li key={index} className="rounded-2xl bg-black/20 px-4 py-2">
-                    {new Date(entry.drawnAt).toLocaleString()} · {entry.participantes} ticket(s) emitido(s)
+                    {formatDateToLocal(entry.drawnAt)} · {entry.participantes} ticket(s) emitido(s)
                   </li>
                 ))}
               </ul>

@@ -2,6 +2,7 @@ import db from '../config/sqliteDatabase';
 import { Participant, PendingParticipant } from '../services/participantService'; // Assuming these interfaces are defined there
 import { randomUUID } from 'crypto';
 import { logger } from '../observability/logger';
+import { getCurrentUTCTimestamp } from '../utils/dateUtils';
 
 // Helper to convert SQLite row to Participant interface
 const rowToParticipant = (row: any): Participant | null => {
@@ -94,7 +95,7 @@ export const insertParticipant = (
   },
 ): Participant => {
   const newId = participant.id ?? randomUUID();
-  const createdAt = participant.createdAt ?? new Date().toISOString();
+  const createdAt = participant.createdAt ?? getCurrentUTCTimestamp();
   const updatedAt = participant.updatedAt ?? createdAt;
   const stmt = db.prepare(`
     INSERT INTO participants (
@@ -127,7 +128,7 @@ export const insertParticipant = (
 };
 
 export const updateParticipant = (id: string, updates: Partial<Participant>): Participant | null => {
-  const now = new Date().toISOString();
+  const now = getCurrentUTCTimestamp();
   const setClauses: string[] = [];
   const params: any[] = [];
 
@@ -207,7 +208,7 @@ export const findPendingParticipantByEmail = (email: string): PendingParticipant
 
 export const insertPendingParticipant = (pendingParticipant: Omit<PendingParticipant, 'id' | 'createdAt' | 'updatedAt'>): PendingParticipant => {
   const newId = randomUUID();
-  const now = new Date().toISOString();
+  const now = getCurrentUTCTimestamp();
   const stmt = db.prepare(`
     INSERT INTO pendingParticipants (
       id, email, firstName, secondName, isChild, primaryGuardianEmail, guardianEmails,

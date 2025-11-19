@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import db from '../config/sqliteDatabase';
 import { logger } from '../observability/logger';
+import { getCurrentUTCTimestamp } from '../utils/dateUtils';
 
 type EventStatus = 'rascunho' | 'ativo' | 'sorteado' | 'cancelado';
 
