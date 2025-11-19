@@ -8,11 +8,17 @@ import { sendDrawReminderEmail } from './services/emailService';
 import { runMonitoredJob } from './observability/jobMonitor';
 import { logger, logStructuredError } from './observability/logger';
 
+/**
+ * Ponto de entrada do backend. Aqui conectamos o Express, iniciamos o banco SQLite e
+ * agendamos tarefas recorrentes (cron). Toda a instrumentação é feita com mensagens
+ * em português para facilitar a observação em produção.
+ */
+
 const start = async (): Promise<void> => {
   try {
     logger.info({ event: 'bootstrap', database: sqliteDb.name ?? 'sqlite' }, 'SQLite inicializado');
 
-    // Set up cron job to check for events needing reminders every minute
+    // Agenda a cada minuto um lembrete gentil para moderadores próximos ao sorteio
     cron.schedule('* * * * *', async () => {
       await runMonitoredJob('draw-reminder-email', async () => {
         const eventsNeedingReminder = await getEventsNeedingReminder();

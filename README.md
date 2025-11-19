@@ -2,6 +2,18 @@
 
 Plataforma profissional para organizar o seu encontro de amigo oculto. O projeto combina uma API Node.js com persistência em SQLite (arquivo local, sem serviços externos) e uma interface web moderna construída com React e Vite.
 
+## Sumário rápido
+
+1. [Visão geral](#visão-geral)
+2. [Estrutura do projeto](#estrutura-do-projeto)
+3. [Configuração da API](#configuração-da-api-server)
+4. [Configuração da interface web](#configuração-da-interface-web-web)
+5. [Fluxo de uso](#fluxo-de-uso)
+6. [Testes e lint](#testes-e-lint)
+7. [Boas práticas implementadas](#boas-práticas-implementadas)
+8. [Documentação complementar](#documentação-complementar)
+9. [Próximos passos sugeridos](#próximos-passos-sugeridos)
+
 > **Persistência garantida:** todos os cadastros — participantes, listas de presentes e eventos — ficam gravados em `server/data/database.db`. Reiniciar o servidor não apaga as informações.
 
 ## Visão geral
@@ -21,6 +33,17 @@ Plataforma profissional para organizar o seu encontro de amigo oculto. O projeto
 ├── server   # API em Node.js + Express + SQLite
 └── web      # Interface web em React + Vite
 ```
+
+### Scripts úteis
+
+| Comando | Descrição |
+| --- | --- |
+| `npm install` | Instala dependências de `server` e `web` via workspaces. |
+| `npm run dev` | Sobe backend e frontend em paralelo (hot reload). |
+| `npm run dev:server` | Sobe apenas a API com `ts-node-dev`. |
+| `npm run dev:web` | Sobe apenas a interface web com Vite. |
+| `npm run build` | Gera os builds de produção de backend e frontend. |
+| `npm run lint` | Executa a checagem de tipos/eslint em ambos os workspaces. |
 
 ## Pré-requisitos
 
@@ -124,6 +147,14 @@ npm --prefix web run build
 - Armazenamento seguro das sessões administrativas e IDs de participantes no `localStorage` com feedback contextual.
 - Persistência apenas de inscrições com e-mail confirmado, mantendo pendências separadas até a validação.
 - Sessões de participantes persistidas com cookies HTTP-only para evitar perda de acesso ao trocar de aplicativo durante o login.
+
+## Documentação complementar
+
+Para aprofundar em cada parte do projeto, confira os guias dedicados:
+
+- [Arquitetura detalhada](docs/ARQUITETURA.md) — visão de camadas, banco e observabilidade.
+- [Guia de API](docs/API.md) — tabela completa com todos os endpoints e códigos HTTP.
+- [Guia rápido da interface web](docs/FRONTEND.md) — padrões de UX, estados e roadmap visual.
 
 ## Próximos passos sugeridos
 

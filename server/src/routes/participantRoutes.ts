@@ -1,4 +1,3 @@
-﻿// Este ficheiro deve estar em server/src/routes/participantRoutes.ts
 import { Router } from 'express';
 import {
   createParticipant,
@@ -17,38 +16,22 @@ import { requireParticipantAuth } from '../middlewares/participantAuth';
 
 const router = Router();
 
-// POST /api/participants -> chama a funÃ§Ã£o createParticipant
-router.post('/', createParticipant);
+/**
+ * Rotas públicas e autenticadas relacionadas ao ciclo de vida dos participantes.
+ * Todas as mensagens e comentários foram escritos em português para manter a
+ * proximidade com o público alvo da aplicação.
+ */
 
-// POST /api/participants/verify -> chama a funÃ§Ã£o confirmParticipant
-router.post('/verify', confirmParticipant);
-
-// POST /api/participants/login -> autentica o participante e retorna um token
-router.post('/login', authenticateParticipant);
-
-// POST /api/participants/logout -> encerra a sessão atual removendo o cookie
-router.post('/logout', logoutParticipant);
-
-// POST /api/participants/request-verification-code -> envia código para login/confirmacao
-router.post('/request-verification-code', requestVerificationCode);
-
-// PUT /api/participants/update-email -> atualiza o email e reenvia cÃ³digo
-router.put('/update-email', updateEmail);
-
-// GET /api/participants/search -> pesquisa participantes pelo nome
-router.get('/search', searchParticipantsByName);
-
-// GET /api/participants/by-email/:email -> chama a funÃ§Ã£o getParticipantStatusByEmail
-router.get('/by-email/:email', getParticipantStatusByEmail);
-
-// POST /api/participants/:id/resend -> chama a funÃ§Ã£o resendVerification
-router.post('/:id/resend', resendVerification);
-
-// GET /api/participants/me -> retorna dados do participante autenticado
-router.get('/me', requireParticipantAuth, getCurrentParticipant);
-
-// GET /api/participants/:id -> chama a funÃ§Ã£o getParticipantStatus
-router.get('/:id', getParticipantStatus);
+router.post('/', createParticipant); // Inicia a inscrição e envia código de verificação
+router.post('/verify', confirmParticipant); // Conclui a verificação usando ID + código
+router.post('/login', authenticateParticipant); // Abre a sessão protegida do painel de listas
+router.post('/logout', logoutParticipant); // Encerra a sessão atual removendo o cookie
+router.post('/request-verification-code', requestVerificationCode); // Reenvia código temporário
+router.put('/update-email', updateEmail); // Atualiza o e-mail da inscrição pendente
+router.get('/search', searchParticipantsByName); // Busca por nome para uso administrativo
+router.get('/by-email/:email', getParticipantStatusByEmail); // Verifica status pelo e-mail
+router.post('/:id/resend', resendVerification); // Reenvia o código para um ID específico
+router.get('/me', requireParticipantAuth, getCurrentParticipant); // Retorna dados da sessão ativa
+router.get('/:id', getParticipantStatus); // Mostra status completo de qualquer participante
 
 export default router;
-
