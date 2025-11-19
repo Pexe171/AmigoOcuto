@@ -1,6 +1,12 @@
 ﻿// Este ficheiro deve estar em server/src/controllers/participantController.ts
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    participantId?: string;
+  }
+}
 import {
   registerParticipant,
   verifyParticipant,
