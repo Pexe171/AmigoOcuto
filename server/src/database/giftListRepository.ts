@@ -1,6 +1,7 @@
 import db from '../config/sqliteDatabase';
 import { randomUUID } from 'crypto';
 import { logger } from '../observability/logger';
+import { getCurrentUTCTimestamp } from '../utils/dateUtils';
 
 export interface GiftItem {
   id: string;
@@ -62,7 +63,7 @@ export const findGiftListsByParticipantIds = (participantIds: string[]): GiftLis
 
 export const createGiftList = (participantId: string): GiftList => {
   const newId = randomUUID();
-  const now = new Date().toISOString();
+  const now = getCurrentUTCTimestamp();
   try {
     const stmt = db.prepare(`
       INSERT INTO giftLists (id, participantId, items, createdAt, updatedAt)
@@ -81,7 +82,7 @@ export const createGiftList = (participantId: string): GiftList => {
 };
 
 export const updateGiftList = (participantId: string, items: GiftItem[]): GiftList | null => {
-  const now = new Date().toISOString();
+  const now = getCurrentUTCTimestamp();
   try {
     const stmt = db.prepare(`
       UPDATE giftLists

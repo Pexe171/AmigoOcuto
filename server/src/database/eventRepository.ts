@@ -193,7 +193,7 @@ export const updateEvent = (id: string, updates: Partial<Omit<EventRecord, 'id'>
   }
 
   fields.push('updatedAt = ?');
-  params.push(new Date().toISOString());
+  params.push(getCurrentUTCTimestamp());
   params.push(id);
 
   const stmt = db.prepare(`UPDATE events SET ${fields.join(', ')} WHERE id = ?`);
@@ -259,7 +259,7 @@ export const deleteEvent = (id: string): boolean => {
 };
 
 export const findEventsNeedingReminder = (): EventRecord[] => {
-  const now = new Date().toISOString();
+  const now = getCurrentUTCTimestamp();
   const stmt = db.prepare('SELECT * FROM events WHERE drawDateTime IS NOT NULL AND drawDateTime <= ? AND status = ?');
   return stmt
     .all(now, 'ativo')
