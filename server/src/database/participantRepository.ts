@@ -238,7 +238,7 @@ export const insertPendingParticipant = (pendingParticipant: Omit<PendingPartici
 };
 
 export const updatePendingParticipant = (id: string, updates: Partial<PendingParticipant>): PendingParticipant | null => {
-  const now = new Date().toISOString();
+  const now = getCurrentUTCTimestamp();
   const setClauses: string[] = [];
   const params: any[] = [];
 

@@ -32,7 +32,7 @@ export const createEventTicket = (
   ticketCode: string,
 ): EventTicket => {
   const id = randomUUID();
-  const now = new Date().toISOString();
+  const now = getCurrentUTCTimestamp();
   const stmt = db.prepare(`
     INSERT INTO eventTickets (id, eventId, participantId, assignedParticipantId, ticketCode, createdAt)
     VALUES (?, ?, ?, ?, ?, ?)
