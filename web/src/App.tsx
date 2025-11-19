@@ -12,6 +12,8 @@ import { NotificationProvider } from './context/NotificationContext';
 import { AppLayout } from './layouts/AppLayout';
 
 const App: React.FC = () => {
+  // Toda a experiência passa por este roteador: notificações, layout e páginas públicas/protegidas.
+  // Mantemos os caminhos em português para reforçar o tom acolhedor da aplicação.
   return (
     <BrowserRouter>
       <NotificationProvider>

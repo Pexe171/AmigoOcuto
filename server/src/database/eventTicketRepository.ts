@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import db from '../config/sqliteDatabase';
+import { getCurrentUTCTimestamp } from '../utils/dateUtils';
 
 export interface EventTicket {
   id: string;

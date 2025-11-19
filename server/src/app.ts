@@ -13,6 +13,9 @@ import { cookieParser } from './middlewares/cookieParser';
 
 const app = express();
 
+// Ordem importa: primeiro endurecemos os cabeçalhos, depois liberamos CORS e, em seguida,
+// habilitamos JSON/cookies/limites. Assim cada requisição recebe a mesma experiência
+// humana e segura em qualquer rota.
 app.use(securityHeaders);
 app.use(cors());
 app.use(express.json());

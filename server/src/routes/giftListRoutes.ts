@@ -1,23 +1,18 @@
-// Este ficheiro deve estar em server/src/routes/giftListRoutes.ts
 import { Router } from 'express';
 import {
-  getParticipantGiftList, // Changed from fetchGiftList
-  updateParticipantGiftList, // Changed from updateGiftList
+  getParticipantGiftList,
+  updateParticipantGiftList,
   getAssignedFriend,
 } from '../controllers/giftListController';
 import { requireParticipantAuth } from '../middlewares/participantAuth';
 
-const router = Router(); // Removed { mergeParams: true } as we'll define full paths here
+const router = Router();
 
-router.use(requireParticipantAuth); // Apply auth middleware to all routes in this router
+// Toda rota daqui exige autenticação de participante (cookie HTTP-only)
+router.use(requireParticipantAuth);
 
-// GET /api/gift-lists/:participantId/assigned-friend
-router.get('/:participantId/assigned-friend', getAssignedFriend);
-
-// GET /api/gift-lists/:participantId
-router.get('/:participantId', getParticipantGiftList);
-
-// PUT /api/gift-lists/:participantId
-router.put('/:participantId', updateParticipantGiftList);
+router.get('/:participantId/assigned-friend', getAssignedFriend); // Mostra quem você tirou
+router.get('/:participantId', getParticipantGiftList); // Retorna os itens cadastrados
+router.put('/:participantId', updateParticipantGiftList); // Atualiza a lista completa
 
 export default router;

@@ -19,7 +19,7 @@ import {
   deleteExistingEvent,
   resetDatabaseData,
   exportParticipants,
-  importParticipants
+  importParticipants,
 } from '../controllers/adminController';
 import { requireAdmin } from '../middlewares/adminAuth';
 
@@ -27,6 +27,8 @@ const router = Router();
 
 router.post('/login', authenticateAdmin);
 router.use(requireAdmin);
+
+// A partir daqui todas as rotas exigem token válido do painel administrativo
 router.get('/participants', listParticipants);
 router.post('/participants/import', importParticipants);
 router.get('/participants/export', exportParticipants);
