@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sendVerificationEmail, ParticipantContact, buildGuardianList } from './emailService';
 import { generateVerificationCode } from '../utils/codeGenerator';
 import { ensureNames } from '../utils/nameUtils';
+import { getFutureUTCTimestamp } from '../utils/dateUtils';
 import { findEventById as findEventRecordById, addParticipantToEvent } from '../database/eventRepository';
 import { logger } from '../observability/logger';
 import {
@@ -171,7 +172,7 @@ export const registerParticipant = async (input: RegistrationInput): Promise<Pen
 
   const verificationCode = generateVerificationCode();
   const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
-  const verificationExpiresAt = new Date(Date.now() + verificationTTLMinutes * 60 * 1000).toISOString();
+  const verificationExpiresAt = getFutureUTCTimestamp(verificationTTLMinutes);
 
   const primaryGuardianEmail = data.primaryGuardianEmail?.toLowerCase();
   const normalizedGuardianEmails = data.guardianEmails?.map((email) => email.toLowerCase()) ?? [];
@@ -242,7 +243,7 @@ export const requestVerificationCodeByEmail = async (
 
   const verificationCode = generateVerificationCode();
   const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
-  const verificationExpiresAt = new Date(Date.now() + verificationTTLMinutes * 60 * 1000).toISOString();
+  const verificationExpiresAt = getFutureUTCTimestamp(verificationTTLMinutes);
 
   if (pending) {
     updatePendingParticipant(pending.id, {
@@ -405,7 +406,7 @@ export const resendVerificationCode = async (participantId: string): Promise<voi
 
   const verificationCode = generateVerificationCode();
   const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
-  const verificationExpiresAt = new Date(Date.now() + verificationTTLMinutes * 60 * 1000).toISOString();
+  const verificationExpiresAt = getFutureUTCTimestamp(verificationTTLMinutes);
 
   const updatedPending =
     updatePendingParticipant(pending.id, {
@@ -466,7 +467,7 @@ export const updateParticipantEmail = async (
 
   const verificationCode = generateVerificationCode();
   const verificationCodeHash = await bcrypt.hash(verificationCode, 10);
-  const verificationExpiresAt = new Date(Date.now() + verificationTTLMinutes * 60 * 1000).toISOString();
+  const verificationExpiresAt = getFutureUTCTimestamp(verificationTTLMinutes);
 
   let guardianEmails = sanitizeGuardianEmails(pending.guardianEmails);
 
