@@ -19,7 +19,7 @@ import {
 } from '../services/adminService';
 import { resetDatabase } from '../config/sqliteDatabase';
 
-type AdminTokenPayload = { email: string };
+type AdminTokenPayload = { email: string; role: 'admin' };
 
 const loginSchema = z
   .object({
@@ -48,6 +48,11 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
     if (credentials.token) {
       try {
         const payload = jwt.verify(credentials.token, adminSecret) as AdminTokenPayload & JwtPayload;
+        if (payload.role !== 'admin') {
+          recordAuthEvent({ subject: 'admin', outcome: 'failure', reason: 'invalid_role' });
+          res.status(403).json({ message: 'Acesso administrativo não autorizado.' });
+          return;
+        }
         recordAuthEvent({ subject: 'admin', outcome: 'success', email: payload.email });
         res.json({
           message: 'Sessão restaurada com sucesso.',
@@ -75,7 +80,7 @@ export const authenticateAdmin = (req: Request, res: Response): void => {
     }
 
     const token = jwt.sign(
-      { email: env.ADMIN_EMAIL } satisfies AdminTokenPayload,
+      { email: env.ADMIN_EMAIL, role: 'admin' } satisfies AdminTokenPayload,
       adminSecret,
       { expiresIn: `${env.ADMIN_SESSION_MINUTES}m` }
     );

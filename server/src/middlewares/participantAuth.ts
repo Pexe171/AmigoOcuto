@@ -6,6 +6,7 @@ import { secretManager } from '../security/secretManager';
 interface ParticipantTokenPayload extends jwt.JwtPayload {
   participantId: string; // Stored as string in JWT
   email?: string;
+  role?: string;
 }
 
 export const requireParticipantAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -27,7 +28,11 @@ export const requireParticipantAuth = async (req: Request, res: Response, next: 
     return;
   }
   try {
-    const decoded = jwt.verify(token, secretManager.getSecret('ADMIN_JWT_SECRET')) as ParticipantTokenPayload;
+    const decoded = jwt.verify(token, secretManager.getSecret('PARTICIPANT_JWT_SECRET')) as ParticipantTokenPayload;
+    if (decoded.role !== 'participant') {
+      res.status(403).json({ message: 'Acesso não autorizado para este perfil.' });
+      return;
+    }
     if (!decoded.participantId || typeof decoded.participantId !== 'string') {
       res.status(401).json({ message: 'Sessão inválida ou expirada. Faça login novamente.' });
       return;

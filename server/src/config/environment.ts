@@ -18,6 +18,10 @@ const envSchema = z
       .string()
       .min(16, 'ADMIN_JWT_SECRET deve ter pelo menos 16 caracteres.')
       .default('troque-este-segredo-super-seguro'),
+    PARTICIPANT_JWT_SECRET: z
+      .string()
+      .min(16, 'PARTICIPANT_JWT_SECRET deve ter pelo menos 16 caracteres.')
+      .default('troque-este-segredo-participante'),
     ADMIN_SESSION_MINUTES: z.coerce
       .number()
       .min(5, 'ADMIN_SESSION_MINUTES deve ser no mínimo 5 minutos.')

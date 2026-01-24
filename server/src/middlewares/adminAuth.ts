@@ -13,7 +13,14 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction): v
 
   const token = authorization.slice('Bearer '.length).trim();
   try {
-    jwt.verify(token, secretManager.getSecret('ADMIN_JWT_SECRET'));
+    const payload = jwt.verify(token, secretManager.getSecret('ADMIN_JWT_SECRET')) as jwt.JwtPayload & {
+      role?: string;
+    };
+    if (payload.role !== 'admin') {
+      recordAuthEvent({ subject: 'admin', outcome: 'failure', reason: 'invalid_role' });
+      res.status(403).json({ message: 'Acesso administrativo não autorizado.' });
+      return;
+    }
     next();
   } catch {
     recordAuthEvent({ subject: 'admin', outcome: 'failure', reason: 'invalid_token' });
