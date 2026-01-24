@@ -2,7 +2,7 @@ import EventEmitter from 'events';
 import { env } from '../config/environment';
 import { logger } from '../observability/logger';
 
-export type SecretKey = 'ADMIN_JWT_SECRET' | 'ADMIN_PASSWORD';
+export type SecretKey = 'ADMIN_JWT_SECRET' | 'ADMIN_PASSWORD' | 'PARTICIPANT_JWT_SECRET';
 
 type SecretState = Record<SecretKey, string>;
 
@@ -21,6 +21,7 @@ class SecretManager extends EventEmitter {
     return {
       ADMIN_JWT_SECRET: process.env.ADMIN_JWT_SECRET ?? env.ADMIN_JWT_SECRET,
       ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ?? env.ADMIN_PASSWORD,
+      PARTICIPANT_JWT_SECRET: process.env.PARTICIPANT_JWT_SECRET ?? env.PARTICIPANT_JWT_SECRET,
     } satisfies SecretState;
   }
 

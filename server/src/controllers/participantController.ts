@@ -385,6 +385,7 @@ export const updateEmail = async (
 type ParticipantTokenPayload = {
   participantId: string;
   email?: string;
+  role: 'participant';
 };
 
 export const authenticateParticipant = async (req: Request, res: Response): Promise<void> => {
@@ -402,8 +403,12 @@ export const authenticateParticipant = async (req: Request, res: Response): Prom
     const participantId = resolveParticipantId(participant);
 
     const token = jwt.sign(
-      { participantId, email: participant.email || participant.primaryGuardianEmail } as ParticipantTokenPayload,
-      secretManager.getSecret('ADMIN_JWT_SECRET'),
+      {
+        participantId,
+        email: participant.email || participant.primaryGuardianEmail,
+        role: 'participant',
+      } as ParticipantTokenPayload,
+      secretManager.getSecret('PARTICIPANT_JWT_SECRET'),
       { expiresIn: '1h' },
     );
 
@@ -433,7 +438,6 @@ export const logoutParticipant = (_req: Request, res: Response): void => {
   clearParticipantSession(res);
   res.json({ message: 'Sessão encerrada com sucesso.' });
 };
-
 
 
 
