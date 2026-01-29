@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import FestiveCard from '../components/FestiveCard';
 import { api, extractErrorMessage } from '../services/api';
 import { useNotification } from '../hooks/useNotification';
@@ -42,6 +42,7 @@ const ParticipantLoginPage: React.FC = () => {
   const [confirmingCode, setConfirmingCode] = useState(false);
   const { notification, show, clear } = useNotification();
   const { participant, setParticipant } = useParticipant();
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -60,6 +61,14 @@ const ParticipantLoginPage: React.FC = () => {
       navigate('/listas');
     }
   }, [participant.id, navigate]);
+
+  useEffect(() => {
+    const state = location.state as { message?: string; type?: 'success' | 'error' | 'info' } | null;
+    if (state?.message) {
+      show(state.type ?? 'info', state.message);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.state, navigate, show]);
 
   useEffect(() => {
     const emailParam = searchParams.get('email');

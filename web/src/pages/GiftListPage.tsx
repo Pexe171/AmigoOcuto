@@ -53,19 +53,27 @@ const GiftListPage: React.FC = () => {
   const [assignmentMessage, setAssignmentMessage] = useState<string | null>(null);
   const [showFriendList, setShowFriendList] = useState(false);
 
+  const redirectToLogin = useCallback(
+    (message: string, type: 'info' | 'error' = 'info') => {
+      clearParticipant();
+      navigate('/login', {
+        state: { message, type },
+      });
+    },
+    [clearParticipant, navigate]
+  );
+
   const handleLogout = useCallback(() => {
     void logoutParticipantSession().catch((error) => {
       console.warn('Erro ao encerrar sessão do participante:', error);
     });
-    clearParticipant();
-    navigate('/login');
-    show('info', 'Você foi desconectado.');
-  }, [clearParticipant, navigate, show]);
+    redirectToLogin('Você foi desconectado.', 'info');
+  }, [redirectToLogin]);
 
   const fetchDashboardData = useCallback(async () => {
     if (!participant.id) {
-      console.error('Participant está sem identificador, não é possível carregar a lista.');
       setLoading(false);
+      redirectToLogin('Sua sessão expirou. Faça login novamente.', 'error');
       return;
     }
 
@@ -143,7 +151,7 @@ const GiftListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [handleLogout, participant.id, show]);
+  }, [handleLogout, participant.id, redirectToLogin, show]);
 
   useEffect(() => {
     if (!participant.id) {

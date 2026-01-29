@@ -147,6 +147,7 @@ npm --prefix web run build
 - Armazenamento seguro das sessões administrativas e IDs de participantes no `localStorage` com feedback contextual.
 - Persistência apenas de inscrições com e-mail confirmado, mantendo pendências separadas até a validação.
 - Sessões de participantes persistidas com cookies HTTP-only para evitar perda de acesso ao trocar de aplicativo durante o login.
+- Mensagens de expiração de sessão reaproveitam o estado de navegação para orientar o participante a refazer o login.
 
 ## Documentação complementar
 
