@@ -154,7 +154,6 @@ const RegistrationPage: React.FC = () => {
 
   const onSubmit = handleSubmit(
     async (data) => {
-      console.log('Formulário submetido com dados:', data);
       setLoading(true);
       clear();
       try {
@@ -214,7 +213,6 @@ const RegistrationPage: React.FC = () => {
     },
     (errors) => {
       // Callback de erro de validação
-      console.error('Erros de validação:', errors);
       const firstError = Object.values(errors)[0];
       if (firstError?.message) {
         show('error', firstError.message);
@@ -391,10 +389,6 @@ const RegistrationPage: React.FC = () => {
             type="submit"
             className={primaryButtonClass}
             disabled={loading}
-            onClick={() => {
-              console.log('Botão clicado, loading:', loading);
-              // Não prevenir o default - deixar o handleSubmit fazer o trabalho
-            }}
           >
             {loading ? 'Enviando...' : 'Enviar inscrição'}
           </button>
