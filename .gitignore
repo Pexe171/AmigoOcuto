@@ -1,10 +1,56 @@
-node_modules
+```
+# Dependencies
+node_modules/
+
+# Environment variables
 .env
+.env.local
+.env.*
+
+# Database files
+server/data/database.db
+server/data/database.db-shm
+server/data/database.db-wal
+
+# Build outputs
+dist/
+build/
+target/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# OS generated files
 .DS_Store
-server/.env
-server/dist
-web/dist
-web/node_modules
-npm-debug.log*
-.cursor
-cursor
+Thumbs.db
+
+# IDE specific
+.vscode/
+.idea/
+
+# Python cache (if any Python components)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Package manager lock files (though deleted, may regenerate)
+package-lock.json
+yarn.lock
+
+# TypeScript build output
+*.tsbuildinfo
+
+# Local configuration overrides
+*.local.*
+```
